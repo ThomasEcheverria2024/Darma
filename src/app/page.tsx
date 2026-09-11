@@ -41,6 +41,8 @@ export default function HomePage() {
   const [darkMode, setDarkMode] = useState(true);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productPage, setProductPage] = useState(1);
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("Todas");
 
   useEffect(() => {
     document.body.dataset.theme = darkMode ? "dark" : "light";
@@ -71,10 +73,32 @@ export default function HomePage() {
     }
   }, [saleProductId, state.products]);
 
+  const categories = useMemo(
+    () => ["Todas", ...new Set(state.products.map((product) => product.category).filter(Boolean))],
+    [state.products],
+  );
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+
+    return state.products.filter((product) => {
+      const matchesQuery =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.code.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query);
+
+      const matchesCategory =
+        productCategoryFilter === "Todas" || product.category === productCategoryFilter;
+
+      return matchesQuery && matchesCategory;
+    });
+  }, [productCategoryFilter, productSearch, state.products]);
+
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(state.products.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
     setProductPage((current) => Math.min(current, totalPages));
-  }, [state.products.length]);
+  }, [filteredProducts.length]);
 
   const selectedProduct = useMemo(
     () => state.products.find((product) => product.id === saleProductId) ?? null,
@@ -91,11 +115,11 @@ export default function HomePage() {
     (product) => product.stock <= product.minStock,
   );
 
-  const totalPages = Math.max(1, Math.ceil(state.products.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const paginatedProducts = useMemo(() => {
     const start = (productPage - 1) * PAGE_SIZE;
-    return state.products.slice(start, start + PAGE_SIZE);
-  }, [productPage, state.products]);
+    return filteredProducts.slice(start, start + PAGE_SIZE);
+  }, [filteredProducts, productPage]);
 
   function resetProductForm() {
     setEditingProductId(null);
@@ -436,8 +460,29 @@ export default function HomePage() {
         <div className="card product-table-card">
           <div className="table-toolbar">
             <h2>Inventario</h2>
-            <span>{state.products.length} productos</span>
+            <span>{filteredProducts.length} productos</span>
           </div>
+
+          <div className="product-filter-bar">
+            <label className="search-field">
+              Buscar producto
+              <input
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Nombre, código o categoría"
+              />
+            </label>
+
+            <label className="search-field">
+              Categoría
+              <select value={productCategoryFilter} onChange={(e) => setProductCategoryFilter(e.target.value)}>
+                {categories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="table-wrap">
             <table>
               <thead>
@@ -451,30 +496,38 @@ export default function HomePage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProducts.map((product) => (
-                  <tr key={product.id} className={product.stock <= product.minStock ? "low-stock" : ""}>
-                    <td>{product.code}</td>
-                    <td>{product.name}</td>
-                    <td>{product.category}</td>
-                    <td>{product.stock}</td>
-                    <td>{product.minStock}</td>
-                    <td>
-                      <div className="action-group">
-                        <button type="button" className="row-btn edit-btn" onClick={() => editProduct(product)}>
-                          Editar
-                        </button>
-                        <button type="button" className="row-btn delete-btn" onClick={() => deleteProduct(product.id)}>
-                          Eliminar
-                        </button>
-                      </div>
+                {paginatedProducts.length ? (
+                  paginatedProducts.map((product) => (
+                    <tr key={product.id} className={product.stock <= product.minStock ? "low-stock" : ""}>
+                      <td>{product.code}</td>
+                      <td>{product.name}</td>
+                      <td>{product.category}</td>
+                      <td>{product.stock}</td>
+                      <td>{product.minStock}</td>
+                      <td>
+                        <div className="action-group">
+                          <button type="button" className="row-btn edit-btn" onClick={() => editProduct(product)}>
+                            Editar
+                          </button>
+                          <button type="button" className="row-btn delete-btn" onClick={() => deleteProduct(product.id)}>
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="empty-results">
+                      No se encontraron productos con ese filtro.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
 
-          {state.products.length > PAGE_SIZE ? (
+          {filteredProducts.length > PAGE_SIZE ? (
             <div className="pagination">
               <button
                 type="button"

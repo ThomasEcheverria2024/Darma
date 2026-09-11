@@ -426,6 +426,26 @@ textarea {
   margin-bottom: 12px;
 }
 
+.product-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 16px;
+  margin: 16px 0 18px;
+}
+
+.search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.search-field input,
+.search-field select {
+  min-height: 48px;
+}
+
 .table-toolbar span {
   color: var(--muted);
   font-weight: 700;
@@ -433,6 +453,13 @@ textarea {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.empty-results {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 18px 10px;
 }
 
 table {
