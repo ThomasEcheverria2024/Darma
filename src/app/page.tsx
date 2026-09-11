@@ -41,6 +41,9 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [darkMode, setDarkMode] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("admin@darma.com");
+  const [loginPassword, setLoginPassword] = useState("darma123");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productPage, setProductPage] = useState(1);
   const [productSearch, setProductSearch] = useState("");
@@ -472,6 +475,79 @@ export default function HomePage() {
     setSuccess(`Se importaron ${importedProducts.length} productos desde la lista.`);
     setError("");
     event.target.value = "";
+  }
+
+  function handleLogin(event: FormEvent) {
+    event.preventDefault();
+
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setError("Ingresá email y contraseña para continuar.");
+      return;
+    }
+
+    const email = loginEmail.trim().toLowerCase();
+    const password = loginPassword.trim();
+
+    if (email === "admin@darma.com" && password === "darma123") {
+      setIsAuthenticated(true);
+      setError("");
+      setSuccess("Sesión iniciada correctamente.");
+      return;
+    }
+
+    setError("Credenciales inválidas. Usá admin@darma.com / darma123");
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="login-shell">
+        <div className="login-card">
+          <div className="login-brand">
+            <div className="brand-mark" aria-hidden="true">
+              <span className="mark-slice slice-one" />
+              <span className="mark-slice slice-two" />
+            </div>
+            <div>
+              <p className="eyebrow">Darma</p>
+              <h1>Gestión de ventas</h1>
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="login-form">
+            <label>
+              Email
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="admin@darma.com"
+              />
+            </label>
+
+            <label>
+              Contraseña
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </label>
+
+            {error ? <div className="alert error">{error}</div> : null}
+            {success ? <div className="alert success">{success}</div> : null}
+
+            <button type="submit" className="primary-btn login-btn">
+              Ingresar
+            </button>
+          </form>
+
+          <p className="login-credentials">
+            Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
