@@ -201,23 +201,29 @@ function normalizeState(input: Partial<AppState> | null | undefined): AppState {
 }
 
 export async function loadState(): Promise<AppState> {
-  if (supabase) {
-    const { data, error } = await supabase.from("products").select("*, sales(*), customers(*)");
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, code, name, category, stock, min_stock");
 
-    if (!error && data) {
-      return normalizeState({
-        products: data.map((item: any) => ({
-          id: item.id,
-          code: item.code,
-          name: item.name,
-          category: item.category,
-          stock: Number(item.stock ?? 0),
-          minStock: Number(item.min_stock ?? 0),
-        })),
-        customers: [],
-        sales: [],
-      });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return normalizeState({
+          products: data.map((item: any) => ({
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            category: item.category,
+            stock: Number(item.stock ?? 0),
+            minStock: Number(item.min_stock ?? 0),
+          })),
+          customers: [],
+          sales: [],
+        });
+      }
     }
+  } catch {
+    // Ignorar errores de Supabase y usar fallback local.
   }
 
   if (typeof window === "undefined") {
@@ -237,45 +243,49 @@ export async function loadState(): Promise<AppState> {
 }
 
 export async function persistState(state: AppState) {
-  if (supabase) {
-    await supabase.from("products").upsert(
-      state.products.map((product) => ({
-        id: product.id,
-        code: product.code,
-        name: product.name,
-        category: product.category,
-        stock: product.stock,
-        min_stock: product.minStock,
-      })),
-      { onConflict: "id" },
-    );
+  try {
+    if (supabase) {
+      await supabase.from("products").upsert(
+        state.products.map((product) => ({
+          id: product.id,
+          code: product.code,
+          name: product.name,
+          category: product.category,
+          stock: product.stock,
+          min_stock: product.minStock,
+        })),
+        { onConflict: "id" },
+      );
 
-    await supabase.from("customers").upsert(
-      state.customers.map((customer) => ({
-        id: customer.id,
-        name: customer.name,
-        phone: customer.phone,
-        notes: customer.notes,
-      })),
-      { onConflict: "id" },
-    );
+      await supabase.from("customers").upsert(
+        state.customers.map((customer) => ({
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          notes: customer.notes,
+        })),
+        { onConflict: "id" },
+      );
 
-    await supabase.from("sales").upsert(
-      state.sales.map((sale) => ({
-        id: sale.id,
-        date: sale.date,
-        product_id: sale.productId,
-        product_name: sale.productName,
-        quantity: sale.quantity,
-        sale_price: sale.salePrice,
-        customer_id: sale.customerId ?? null,
-        customer_name: sale.customerName ?? null,
-        total: sale.total,
-      })),
-      { onConflict: "id" },
-    );
+      await supabase.from("sales").upsert(
+        state.sales.map((sale) => ({
+          id: sale.id,
+          date: sale.date,
+          product_id: sale.productId,
+          product_name: sale.productName,
+          quantity: sale.quantity,
+          sale_price: sale.salePrice,
+          customer_id: sale.customerId ?? null,
+          customer_name: sale.customerName ?? null,
+          total: sale.total,
+        })),
+        { onConflict: "id" },
+      );
 
-    return;
+      return;
+    }
+  } catch {
+    // Si Supabase falla, seguimos guardando en localStorage.
   }
 
   if (typeof window !== "undefined") {
