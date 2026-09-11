@@ -272,6 +272,63 @@ export async function loadState(): Promise<AppState> {
 export async function persistState(state: AppState) {
   try {
     if (supabase) {
+      const productIds = state.products.map((product) => product.id);
+      const customerIds = state.customers.map((customer) => customer.id);
+      const saleIds = state.sales.map((sale) => sale.id);
+
+      const [productsExistingRes, customersExistingRes, salesExistingRes] = await Promise.all([
+        supabase.from("products").select("id"),
+        supabase.from("customers").select("id"),
+        supabase.from("sales").select("id"),
+      ]);
+
+      const existingProductIds = new Set(
+        Array.isArray(productsExistingRes.data) ? productsExistingRes.data.map((item: any) => item.id) : [],
+      );
+      const existingCustomerIds = new Set(
+        Array.isArray(customersExistingRes.data) ? customersExistingRes.data.map((item: any) => item.id) : [],
+      );
+      const existingSaleIds = new Set(
+        Array.isArray(salesExistingRes.data) ? salesExistingRes.data.map((item: any) => item.id) : [],
+      );
+
+      const deletedProductIds = [...existingProductIds].filter((id) => !productIds.includes(id));
+      const deletedCustomerIds = [...existingCustomerIds].filter((id) => !customerIds.includes(id));
+      const deletedSaleIds = [...existingSaleIds].filter((id) => !saleIds.includes(id));
+
+      if (deletedProductIds.length > 0) {
+        const { error: deleteProductsError } = await supabase
+          .from("products")
+          .delete()
+          .in("id", deletedProductIds);
+
+        if (deleteProductsError) {
+          throw deleteProductsError;
+        }
+      }
+
+      if (deletedCustomerIds.length > 0) {
+        const { error: deleteCustomersError } = await supabase
+          .from("customers")
+          .delete()
+          .in("id", deletedCustomerIds);
+
+        if (deleteCustomersError) {
+          throw deleteCustomersError;
+        }
+      }
+
+      if (deletedSaleIds.length > 0) {
+        const { error: deleteSalesError } = await supabase
+          .from("sales")
+          .delete()
+          .in("id", deletedSaleIds);
+
+        if (deleteSalesError) {
+          throw deleteSalesError;
+        }
+      }
+
       await supabase.from("products").upsert(
         state.products.map((product) => ({
           id: product.id,
