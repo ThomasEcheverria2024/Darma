@@ -5,6 +5,7 @@ create table if not exists products (
   category text not null default 'General',
   stock integer not null default 0,
   min_stock integer not null default 0,
+  cost numeric(12,2) not null default 0,
   created_at timestamptz default now()
 );
 
@@ -23,6 +24,7 @@ create table if not exists sales (
   product_name text not null,
   quantity integer not null default 1,
   sale_price numeric(12,2) not null default 0,
+  cost_total numeric(12,2) not null default 0,
   customer_id text references customers(id),
   customer_name text,
   total numeric(12,2) not null default 0,
@@ -48,3 +50,9 @@ for all using (true) with check (true);
 
 create index if not exists idx_products_stock on products(stock);
 create index if not exists idx_sales_date on sales(date desc);
+
+alter table products
+  add column if not exists cost numeric(12,2) default 0;
+
+alter table sales
+  add column if not exists cost_total numeric(12,2) default 0;

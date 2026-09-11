@@ -182,51 +182,75 @@ const defaultSales: Sale[] = [
 
 export function createInitialState(): AppState {
   return {
-    products: defaultProducts,
-    customers: defaultCustomers,
-    sales: defaultSales,
+    products: [],
+    customers: [],
+    sales: [],
   };
 }
 
 function normalizeState(input: Partial<AppState> | null | undefined): AppState {
-  const base = createInitialState();
+  const empty = createInitialState();
 
   if (!input) {
-    return base;
+    return empty;
   }
 
   return {
-    products: Array.isArray(input.products) ? input.products : base.products,
-    customers: Array.isArray(input.customers) ? input.customers : base.customers,
-    sales: Array.isArray(input.sales) ? input.sales : base.sales,
+    products: Array.isArray(input.products) ? input.products : empty.products,
+    customers: Array.isArray(input.customers) ? input.customers : empty.customers,
+    sales: Array.isArray(input.sales) ? input.sales : empty.sales,
   };
 }
 
 export async function loadState(): Promise<AppState> {
   try {
     if (supabase) {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, code, name, category, stock, min_stock");
+      const [productsRes, customersRes, salesRes] = await Promise.all([
+        supabase.from("products").select("id, code, name, category, stock, min_stock, cost"),
+        supabase.from("customers").select("id, name, phone, notes"),
+        supabase.from("sales").select("id, date, product_id, product_name, quantity, sale_price, cost_total, customer_id, customer_name, total"),
+      ]);
 
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!productsRes.error && !customersRes.error && !salesRes.error) {
         return normalizeState({
-          products: data.map((item: any) => ({
-            id: item.id,
-            code: item.code,
-            name: item.name,
-            category: item.category,
-            stock: Number(item.stock ?? 0),
-            minStock: Number(item.min_stock ?? 0),
-            cost: Number(item.cost ?? 0),
-          })),
-          customers: [],
-          sales: [],
+          products: Array.isArray(productsRes.data)
+            ? productsRes.data.map((item: any) => ({
+                id: item.id,
+                code: item.code,
+                name: item.name,
+                category: item.category,
+                stock: Number(item.stock ?? 0),
+                minStock: Number(item.min_stock ?? 0),
+                cost: Number(item.cost ?? 0),
+              }))
+            : [],
+          customers: Array.isArray(customersRes.data)
+            ? customersRes.data.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                phone: item.phone ?? "",
+                notes: item.notes ?? "",
+              }))
+            : [],
+          sales: Array.isArray(salesRes.data)
+            ? salesRes.data.map((item: any) => ({
+                id: item.id,
+                date: item.date ?? new Date().toISOString(),
+                productId: item.product_id,
+                productName: item.product_name,
+                quantity: Number(item.quantity ?? 0),
+                salePrice: Number(item.sale_price ?? 0),
+                costTotal: Number(item.cost_total ?? 0),
+                customerId: item.customer_id ?? undefined,
+                customerName: item.customer_name ?? undefined,
+                total: Number(item.total ?? 0),
+              }))
+            : [],
         });
       }
     }
   } catch {
-    // Ignorar errores de Supabase y usar fallback local.
+    // Ignorar errores de Supabase y pasar al fallback local.
   }
 
   if (typeof window === "undefined") {
@@ -256,6 +280,7 @@ export async function persistState(state: AppState) {
           category: product.category,
           stock: product.stock,
           min_stock: product.minStock,
+          cost: product.cost,
         })),
         { onConflict: "id" },
       );
@@ -278,6 +303,7 @@ export async function persistState(state: AppState) {
           product_name: sale.productName,
           quantity: sale.quantity,
           sale_price: sale.salePrice,
+          cost_total: sale.costTotal,
           customer_id: sale.customerId ?? null,
           customer_name: sale.customerName ?? null,
           total: sale.total,
