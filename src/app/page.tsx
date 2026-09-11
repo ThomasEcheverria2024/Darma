@@ -18,6 +18,8 @@ const defaultState: AppState = {
   sales: [],
 };
 
+const PAGE_SIZE = 8;
+
 type TabKey = "products" | "customers" | "sales";
 
 export default function HomePage() {
@@ -36,6 +38,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [darkMode, setDarkMode] = useState(true);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productPage, setProductPage] = useState(1);
+
+  useEffect(() => {
+    document.body.dataset.theme = darkMode ? "dark" : "light";
+  }, [darkMode]);
 
   useEffect(() => {
     async function init() {
@@ -56,6 +65,17 @@ export default function HomePage() {
     }
   }, [state, loading]);
 
+  useEffect(() => {
+    if (!state.products.some((product) => product.id === saleProductId)) {
+      setSaleProductId(state.products[0]?.id ?? "");
+    }
+  }, [saleProductId, state.products]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(state.products.length / PAGE_SIZE));
+    setProductPage((current) => Math.min(current, totalPages));
+  }, [state.products.length]);
+
   const selectedProduct = useMemo(
     () => state.products.find((product) => product.id === saleProductId) ?? null,
     [saleProductId, state.products],
@@ -71,6 +91,21 @@ export default function HomePage() {
     (product) => product.stock <= product.minStock,
   );
 
+  const totalPages = Math.max(1, Math.ceil(state.products.length / PAGE_SIZE));
+  const paginatedProducts = useMemo(() => {
+    const start = (productPage - 1) * PAGE_SIZE;
+    return state.products.slice(start, start + PAGE_SIZE);
+  }, [productPage, state.products]);
+
+  function resetProductForm() {
+    setEditingProductId(null);
+    setProductCode("");
+    setProductName("");
+    setProductCategory("General");
+    setProductStock("0");
+    setProductMinStock("0");
+  }
+
   function addProduct(event: FormEvent) {
     event.preventDefault();
     const code = productCode.trim();
@@ -81,13 +116,44 @@ export default function HomePage() {
       return;
     }
 
+    const parsedStock = Number(productStock || 0);
+    const parsedMinStock = Number(productMinStock || 0);
+
+    if (Number.isNaN(parsedStock) || Number.isNaN(parsedMinStock)) {
+      setError("Los valores de stock deben ser numéricos.");
+      return;
+    }
+
+    if (editingProductId) {
+      setState((prev) => ({
+        ...prev,
+        products: prev.products.map((product) =>
+          product.id === editingProductId
+            ? {
+                ...product,
+                code,
+                name,
+                category: productCategory || "General",
+                stock: parsedStock,
+                minStock: parsedMinStock,
+              }
+            : product,
+        ),
+      }));
+
+      setSuccess("Producto actualizado correctamente.");
+      setError("");
+      resetProductForm();
+      return;
+    }
+
     const newProduct: Product = {
       id: crypto.randomUUID(),
       code,
       name,
       category: productCategory || "General",
-      stock: Number(productStock || 0),
-      minStock: Number(productMinStock || 0),
+      stock: parsedStock,
+      minStock: parsedMinStock,
     };
 
     setState((prev) => ({
@@ -95,14 +161,55 @@ export default function HomePage() {
       products: [newProduct, ...prev.products],
     }));
 
-    setProductCode("");
-    setProductName("");
-    setProductCategory("General");
-    setProductStock("0");
-    setProductMinStock("0");
     setError("");
     setSuccess("Producto agregado correctamente.");
     setSaleProductId(newProduct.id);
+    resetProductForm();
+  }
+
+  function editProduct(product: Product) {
+    setEditingProductId(product.id);
+    setProductCode(product.code);
+    setProductName(product.name);
+    setProductCategory(product.category);
+    setProductStock(String(product.stock));
+    setProductMinStock(String(product.minStock));
+    setError("");
+    setSuccess("Editando producto seleccionado.");
+    setActiveTab("products");
+  }
+
+  function deleteProduct(productId: string) {
+    const product = state.products.find((item) => item.id === productId);
+    if (!product) {
+      return;
+    }
+
+    const confirmed = typeof window !== "undefined"
+      ? window.confirm(`¿Eliminar el producto ${product.name}?`)
+      : true;
+
+    if (!confirmed) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      products: prev.products.filter((item) => item.id !== productId),
+      sales: prev.sales.filter((sale) => sale.productId !== productId),
+    }));
+
+    if (editingProductId === productId) {
+      resetProductForm();
+    }
+
+    if (saleProductId === productId) {
+      const nextProduct = state.products.find((item) => item.id !== productId);
+      setSaleProductId(nextProduct?.id ?? "");
+    }
+
+    setError("");
+    setSuccess("Producto eliminado correctamente.");
   }
 
   function addCustomer(event: FormEvent) {
@@ -224,8 +331,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="top-status">
-          <span>{loading ? "Cargando..." : `${state.products.length} productos`}</span>
+        <div className="header-actions">
+          <button type="button" className="theme-toggle" onClick={() => setDarkMode((current) => !current)}>
+            {darkMode ? "Modo claro" : "Modo oscuro"}
+          </button>
+          <div className="top-status">
+            <span>{loading ? "Cargando..." : `${state.products.length} productos`}</span>
+          </div>
         </div>
       </header>
 
@@ -252,7 +364,7 @@ export default function HomePage() {
       <section className={activeTab === "products" ? "panel visible" : "panel hidden"}>
         <div className="panel-grid two-up">
           <div className="card">
-            <h2>Productos</h2>
+            <h2>{editingProductId ? "Editar producto" : "Productos"}</h2>
             <form onSubmit={addProduct} className="stack">
               <div className="row three-cols">
                 <label>
@@ -278,7 +390,16 @@ export default function HomePage() {
                   Stock mínimo
                   <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
                 </label>
-                <button type="submit" className="primary-btn">Agregar producto</button>
+                <div className="form-actions">
+                  <button type="submit" className="primary-btn">
+                    {editingProductId ? "Guardar cambios" : "Agregar producto"}
+                  </button>
+                  {editingProductId ? (
+                    <button type="button" className="secondary-btn" onClick={resetProductForm}>
+                      Cancelar
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </form>
 
@@ -313,6 +434,10 @@ export default function HomePage() {
         </div>
 
         <div className="card product-table-card">
+          <div className="table-toolbar">
+            <h2>Inventario</h2>
+            <span>{state.products.length} productos</span>
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
@@ -322,21 +447,58 @@ export default function HomePage() {
                   <th>Categoría</th>
                   <th>Stock</th>
                   <th>Mínimo</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {state.products.map((product) => (
+                {paginatedProducts.map((product) => (
                   <tr key={product.id} className={product.stock <= product.minStock ? "low-stock" : ""}>
                     <td>{product.code}</td>
                     <td>{product.name}</td>
                     <td>{product.category}</td>
                     <td>{product.stock}</td>
                     <td>{product.minStock}</td>
+                    <td>
+                      <div className="action-group">
+                        <button type="button" className="row-btn edit-btn" onClick={() => editProduct(product)}>
+                          Editar
+                        </button>
+                        <button type="button" className="row-btn delete-btn" onClick={() => deleteProduct(product.id)}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {state.products.length > PAGE_SIZE ? (
+            <div className="pagination">
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={productPage === 1}
+                onClick={() => setProductPage((page) => Math.max(1, page - 1))}
+              >
+                Anterior
+              </button>
+
+              <span>
+                Página {productPage} de {totalPages}
+              </span>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={productPage >= totalPages}
+                onClick={() => setProductPage((page) => Math.min(totalPages, page + 1))}
+              >
+                Siguiente
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
