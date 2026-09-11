@@ -639,87 +639,55 @@ export default function HomePage() {
       </section>
 
       <section className={activeTab === "products" ? "panel visible" : "panel hidden"}>
-        <div className="panel-grid two-up">
-          <div className="card">
-            <h2>{editingProductId ? "Editar producto" : "Productos"}</h2>
-            <form onSubmit={addProduct} className="stack">
-              <div className="row three-cols">
-                <label>
-                  Código
-                  <input value={productCode} onChange={(e) => setProductCode(e.target.value)} />
-                </label>
-                <label>
-                  Nombre
-                  <input value={productName} onChange={(e) => setProductName(e.target.value)} />
-                </label>
-                <label>
-                  Categoría
-                  <input value={productCategory} onChange={(e) => setProductCategory(e.target.value)} />
-                </label>
-              </div>
-
-              <div className="row four-cols">
-                <label>
-                  Stock
-                  <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} />
-                </label>
-                <label>
-                  Stock mínimo
-                  <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
-                </label>
-                <label>
-                  Costo
-                  <input type="number" min="0" value={productCost} onChange={(e) => setProductCost(e.target.value)} />
-                </label>
-                <div className="form-actions">
-                  <button type="submit" className="primary-btn">
-                    {editingProductId ? "Guardar cambios" : "Agregar producto"}
-                  </button>
-                  {editingProductId ? (
-                    <button type="button" className="secondary-btn" onClick={resetProductForm}>
-                      Cancelar
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </form>
-
-            <div className="import-box">
-              <label className="upload-label">
-                Importar lista de Excel
-                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelImport} />
+        <div className="card">
+          <h2>{editingProductId ? "Editar producto" : "Productos"}</h2>
+          <form onSubmit={addProduct} className="stack">
+            <div className="row three-cols">
+              <label>
+                Código
+                <input value={productCode} onChange={(e) => setProductCode(e.target.value)} />
+              </label>
+              <label>
+                Nombre
+                <input value={productName} onChange={(e) => setProductName(e.target.value)} />
+              </label>
+              <label>
+                Categoría
+                <input value={productCategory} onChange={(e) => setProductCategory(e.target.value)} />
               </label>
             </div>
-          </div>
 
-          <div className="card">
-            <h2>{editingCustomerId ? "Editar cliente" : "Clientes"}</h2>
-            <form onSubmit={addCustomer} className="stack">
-              <div className="row two-cols">
-                <label>
-                  Nombre
-                  <input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
-                </label>
-                <label>
-                  Teléfono
-                  <input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
-                </label>
-              </div>
+            <div className="row four-cols">
               <label>
-                Observaciones
-                <textarea value={customer.notes} onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))} />
+                Stock
+                <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} />
+              </label>
+              <label>
+                Stock mínimo
+                <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
+              </label>
+              <label>
+                Costo
+                <input type="number" min="0" value={productCost} onChange={(e) => setProductCost(e.target.value)} />
               </label>
               <div className="form-actions">
                 <button type="submit" className="primary-btn">
-                  {editingCustomerId ? "Guardar cambios" : "Guardar cliente"}
+                  {editingProductId ? "Guardar cambios" : "Agregar producto"}
                 </button>
-                {editingCustomerId ? (
-                  <button type="button" className="secondary-btn" onClick={resetCustomerForm}>
+                {editingProductId ? (
+                  <button type="button" className="secondary-btn" onClick={resetProductForm}>
                     Cancelar
                   </button>
                 ) : null}
               </div>
-            </form>
+            </div>
+          </form>
+
+          <div className="import-box">
+            <label className="upload-label">
+              Importar lista de Excel
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelImport} />
+            </label>
           </div>
         </div>
 
@@ -822,6 +790,40 @@ export default function HomePage() {
       </section>
 
       <section className={activeTab === "customers" ? "panel visible" : "panel hidden"}>
+        <div className="card customer-panel">
+          <div className="customer-header">
+            <h2>{editingCustomerId ? "Editar cliente" : "Crear cliente"}</h2>
+            <span>{state.customers.length} registrados</span>
+          </div>
+
+          <form onSubmit={addCustomer} className="stack customer-form-box">
+            <div className="row two-cols">
+              <label>
+                Nombre
+                <input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
+              </label>
+              <label>
+                Teléfono
+                <input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
+              </label>
+            </div>
+            <label>
+              Observaciones
+              <textarea value={customer.notes} onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))} />
+            </label>
+            <div className="form-actions">
+              <button type="submit" className="primary-btn">
+                {editingCustomerId ? "Guardar cambios" : "Guardar cliente"}
+              </button>
+              {editingCustomerId ? (
+                <button type="button" className="secondary-btn" onClick={resetCustomerForm}>
+                  Cancelar
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </div>
+
         <div className="card customer-panel">
           <div className="customer-header">
             <h2>Listado de clientes</h2>
