@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #05070a;
   --bg-soft: #0b1016;
   --panel: rgba(13, 16, 20, 0.9);
@@ -19,6 +20,7 @@
 }
 
 body[data-theme="light"] {
+  color-scheme: light;
   --bg: #f2f5f7;
   --bg-soft: #e9eef2;
   --panel: rgba(255, 255, 255, 0.9);
@@ -299,12 +301,18 @@ select optgroup {
   color: var(--text);
 }
 
+body[data-theme="light"] select {
+  background-color: #ffffff;
+  color: #101821;
+}
+
 body[data-theme="light"] select option,
 body[data-theme="light"] select optgroup {
   background-color: #ffffff;
   color: #101821;
 }
 
+body[data-theme="dark"] select,
 body[data-theme="dark"] select option,
 body[data-theme="dark"] select optgroup {
   background-color: #111419;

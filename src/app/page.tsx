@@ -30,12 +30,12 @@ type SaleLineDraft = {
   salePrice: string;
 };
 
-function createEmptySaleLine(productId = ""): SaleLineDraft {
+function createEmptySaleLine(productId = "", salePrice = "0"): SaleLineDraft {
   return {
     id: crypto.randomUUID(),
     productId,
     quantity: "1",
-    salePrice: "0",
+    salePrice,
   };
 }
 
@@ -441,7 +441,9 @@ export default function HomePage() {
   }
 
   function addSaleLine() {
-    setSaleLines((lines) => [...lines, createEmptySaleLine(state.products[0]?.id ?? "")]);
+    const defaultProduct = state.products[0];
+    const defaultPrice = defaultProduct ? String(defaultProduct.cost ?? 0) : "0";
+    setSaleLines((lines) => [...lines, createEmptySaleLine(defaultProduct?.id ?? "", defaultPrice)]);
   }
 
   function removeSaleLine(lineId: string) {
@@ -456,7 +458,21 @@ export default function HomePage() {
 
   function updateSaleLine(lineId: string, patch: Partial<SaleLineDraft>) {
     setSaleLines((lines) =>
-      lines.map((line) => (line.id === lineId ? { ...line, ...patch } : line)),
+      lines.map((line) => {
+        if (line.id !== lineId) return line;
+
+        const updated = { ...line, ...patch };
+
+        // If product changed, update default sale price if price was unchanged or 0
+        if (patch.productId && patch.productId !== line.productId) {
+          const newProduct = state.products.find((p) => p.id === patch.productId);
+          if (newProduct && (line.salePrice === "0" || !line.salePrice)) {
+            updated.salePrice = String(newProduct.cost ?? 0);
+          }
+        }
+
+        return updated;
+      }),
     );
   }
 

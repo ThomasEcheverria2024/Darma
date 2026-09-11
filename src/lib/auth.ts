@@ -65,20 +65,27 @@ export async function loginUser(
   const normalizedPassword = password.trim();
 
   if (supabase) {
-    const { data, error } = await supabase.rpc("login_user", {
-      p_email: normalizedEmail,
-      p_password: normalizedPassword,
-    });
+    try {
+      const { data, error } = await supabase.rpc("login_user", {
+        p_email: normalizedEmail,
+        p_password: normalizedPassword,
+      });
 
-    if (error) {
-      return { user: null, error: mapSupabaseAuthError(error) };
+      if (!error) {
+        if (data) {
+          return { user: data as AuthUser };
+        }
+        return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
+      }
+
+      // If rpc fails specifically due to user credentials/validation error from function, map it.
+      // If RPC procedure doesn't exist (e.g. 404 / PGRST202), fall back to local auth.
+      if (error.code && error.code !== "PGRST202" && !error.message?.includes("404")) {
+        return { user: null, error: mapSupabaseAuthError(error) };
+      }
+    } catch {
+      // Fall through to local fallback
     }
-
-    if (data) {
-      return { user: data as AuthUser };
-    }
-
-    return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
   }
 
   const matchedUser = getLocalUsers().find(
@@ -103,18 +110,24 @@ export async function registerUser(
   const normalizedPassword = password.trim();
 
   if (supabase) {
-    const { data, error } = await supabase.rpc("register_user", {
-      p_id: crypto.randomUUID(),
-      p_name: normalizedName,
-      p_email: normalizedEmail,
-      p_password: normalizedPassword,
-    });
+    try {
+      const { data, error } = await supabase.rpc("register_user", {
+        p_id: crypto.randomUUID(),
+        p_name: normalizedName,
+        p_email: normalizedEmail,
+        p_password: normalizedPassword,
+      });
 
-    if (error) {
-      return { user: null, error: mapSupabaseAuthError(error) };
+      if (!error) {
+        return { user: data as AuthUser };
+      }
+
+      if (error.code && error.code !== "PGRST202" && !error.message?.includes("404")) {
+        return { user: null, error: mapSupabaseAuthError(error) };
+      }
+    } catch {
+      // Fall through to local fallback
     }
-
-    return { user: data as AuthUser };
   }
 
   const users = getLocalUsers();
