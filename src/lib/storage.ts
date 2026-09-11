@@ -157,6 +157,7 @@ const defaultProducts: Product[] = catalogProducts.map((item) => ({
   category: item.category,
   stock: item.stock,
   minStock: item.minStock,
+  cost: item.cost,
 }));
 
 const defaultCustomers: Customer[] = [
@@ -172,6 +173,7 @@ const defaultSales: Sale[] = [
     productName: "Shampoo Automotriz 500ml",
     quantity: 2,
     salePrice: 1800,
+    costTotal: 2000,
     customerId: "cli-1",
     customerName: "Juan Pérez",
     total: 3600,
@@ -216,6 +218,7 @@ export async function loadState(): Promise<AppState> {
             category: item.category,
             stock: Number(item.stock ?? 0),
             minStock: Number(item.min_stock ?? 0),
+            cost: Number(item.cost ?? 0),
           })),
           customers: [],
           sales: [],

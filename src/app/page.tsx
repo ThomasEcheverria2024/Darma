@@ -20,17 +20,19 @@ const defaultState: AppState = {
 
 const PAGE_SIZE = 8;
 
-type TabKey = "products" | "customers" | "sales";
+type TabKey = "dashboard" | "products" | "customers" | "sales";
 
 export default function HomePage() {
   const [state, setState] = useState<AppState>(defaultState);
-  const [activeTab, setActiveTab] = useState<TabKey>("products");
+  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [productCode, setProductCode] = useState("");
   const [productName, setProductName] = useState("");
   const [productCategory, setProductCategory] = useState("General");
   const [productStock, setProductStock] = useState("0");
   const [productMinStock, setProductMinStock] = useState("0");
+  const [productCost, setProductCost] = useState("0");
   const [customer, setCustomer] = useState(emptyCustomer);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [saleProductId, setSaleProductId] = useState("");
   const [saleQuantity, setSaleQuantity] = useState("1");
   const [salePrice, setSalePrice] = useState("0");
@@ -115,6 +117,28 @@ export default function HomePage() {
     (product) => product.stock <= product.minStock,
   );
 
+  const salesRevenue = useMemo(
+    () => state.sales.reduce((sum, sale) => sum + sale.total, 0),
+    [state.sales],
+  );
+
+  const totalCost = useMemo(
+    () => state.sales.reduce((sum, sale) => sum + sale.costTotal, 0),
+    [state.sales],
+  );
+
+  const grossProfit = salesRevenue - totalCost;
+
+  const bestSeller = useMemo(() => {
+    const ranking = state.sales.reduce<Record<string, number>>((acc, sale) => {
+      acc[sale.productName] = (acc[sale.productName] ?? 0) + sale.quantity;
+      return acc;
+    }, {});
+
+    const [productName, quantity] = Object.entries(ranking).sort(([, a], [, b]) => b - a)[0] ?? ["Sin ventas", 0];
+    return { productName, quantity };
+  }, [state.sales]);
+
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const paginatedProducts = useMemo(() => {
     const start = (productPage - 1) * PAGE_SIZE;
@@ -128,6 +152,12 @@ export default function HomePage() {
     setProductCategory("General");
     setProductStock("0");
     setProductMinStock("0");
+    setProductCost("0");
+  }
+
+  function resetCustomerForm() {
+    setEditingCustomerId(null);
+    setCustomer(emptyCustomer);
   }
 
   function addProduct(event: FormEvent) {
@@ -142,9 +172,10 @@ export default function HomePage() {
 
     const parsedStock = Number(productStock || 0);
     const parsedMinStock = Number(productMinStock || 0);
+    const parsedCost = Number(productCost || 0);
 
-    if (Number.isNaN(parsedStock) || Number.isNaN(parsedMinStock)) {
-      setError("Los valores de stock deben ser numéricos.");
+    if (Number.isNaN(parsedStock) || Number.isNaN(parsedMinStock) || Number.isNaN(parsedCost)) {
+      setError("Los valores de stock y costo deben ser numéricos.");
       return;
     }
 
@@ -160,6 +191,7 @@ export default function HomePage() {
                 category: productCategory || "General",
                 stock: parsedStock,
                 minStock: parsedMinStock,
+                cost: parsedCost,
               }
             : product,
         ),
@@ -178,6 +210,7 @@ export default function HomePage() {
       category: productCategory || "General",
       stock: parsedStock,
       minStock: parsedMinStock,
+      cost: parsedCost,
     };
 
     setState((prev) => ({
@@ -198,6 +231,7 @@ export default function HomePage() {
     setProductCategory(product.category);
     setProductStock(String(product.stock));
     setProductMinStock(String(product.minStock));
+    setProductCost(String(product.cost ?? 0));
     setError("");
     setSuccess("Editando producto seleccionado.");
     setActiveTab("products");
@@ -245,6 +279,27 @@ export default function HomePage() {
       return;
     }
 
+    if (editingCustomerId) {
+      setState((prev) => ({
+        ...prev,
+        customers: prev.customers.map((customerItem) =>
+          customerItem.id === editingCustomerId
+            ? {
+                ...customerItem,
+                name,
+                phone: customer.phone.trim(),
+                notes: customer.notes.trim(),
+              }
+            : customerItem,
+        ),
+      }));
+
+      setError("");
+      setSuccess("Cliente actualizado.");
+      resetCustomerForm();
+      return;
+    }
+
     const newCustomer: Customer = {
       id: crypto.randomUUID(),
       name,
@@ -257,10 +312,86 @@ export default function HomePage() {
       customers: [newCustomer, ...prev.customers],
     }));
 
-    setCustomer(emptyCustomer);
     setSelectedCustomerId(newCustomer.id);
+    resetCustomerForm();
     setError("");
     setSuccess("Cliente guardado.");
+  }
+
+  function editCustomer(customerItem: Customer) {
+    setEditingCustomerId(customerItem.id);
+    setCustomer({
+      name: customerItem.name,
+      phone: customerItem.phone,
+      notes: customerItem.notes,
+    });
+    setError("");
+    setSuccess("Editando cliente seleccionado.");
+    setActiveTab("customers");
+  }
+
+  function deleteCustomer(customerId: string) {
+    const customerItem = state.customers.find((item) => item.id === customerId);
+    if (!customerItem) {
+      return;
+    }
+
+    const confirmed = typeof window !== "undefined"
+      ? window.confirm(`¿Eliminar el cliente ${customerItem.name}?`)
+      : true;
+
+    if (!confirmed) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      customers: prev.customers.filter((item) => item.id !== customerId),
+      sales: prev.sales.map((sale) =>
+        sale.customerId === customerId
+          ? { ...sale, customerId: undefined, customerName: "Sin cliente" }
+          : sale,
+      ),
+    }));
+
+    if (editingCustomerId === customerId) {
+      resetCustomerForm();
+    }
+
+    if (selectedCustomerId === customerId) {
+      setSelectedCustomerId("");
+    }
+
+    setError("");
+    setSuccess("Cliente eliminado correctamente.");
+  }
+
+  function deleteSale(saleId: string) {
+    const sale = state.sales.find((item) => item.id === saleId);
+    if (!sale) {
+      return;
+    }
+
+    const confirmed = typeof window !== "undefined"
+      ? window.confirm(`¿Eliminar la venta de ${sale.productName}?`)
+      : true;
+
+    if (!confirmed) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      sales: prev.sales.filter((item) => item.id !== saleId),
+      products: prev.products.map((product) =>
+        product.id === sale.productId
+          ? { ...product, stock: product.stock + sale.quantity }
+          : product,
+      ),
+    }));
+
+    setError("");
+    setSuccess("Venta eliminada correctamente.");
   }
 
   function handleSale(event: FormEvent) {
@@ -284,6 +415,7 @@ export default function HomePage() {
     }
 
     const customerSelected = state.customers.find((item) => item.id === selectedCustomerId);
+    const costTotal = Number(selectedProduct.cost ?? 0) * quantity;
 
     const sale: Sale = {
       id: crypto.randomUUID(),
@@ -292,6 +424,7 @@ export default function HomePage() {
       productName: selectedProduct.name,
       quantity,
       salePrice: price,
+      costTotal,
       customerId: customerSelected?.id,
       customerName: customerSelected?.name,
       total: quantity * price,
@@ -370,6 +503,7 @@ export default function HomePage() {
 
       <nav className="tabs" aria-label="Secciones principales">
         {[
+          { key: "dashboard", label: "Dashboard" },
           { key: "products", label: "Productos" },
           { key: "customers", label: "Clientes" },
           { key: "sales", label: "Ventas" },
@@ -384,6 +518,49 @@ export default function HomePage() {
           </button>
         ))}
       </nav>
+
+      <section className={activeTab === "dashboard" ? "panel visible" : "panel hidden"}>
+        <div className="metrics-row dashboard-metrics">
+          <div className="metric metric-green">
+            <span>Ventas realizadas</span>
+            <strong>{state.sales.length}</strong>
+            <small>total de comprobantes</small>
+          </div>
+          <div className="metric metric-blue">
+            <span>Dinero generado</span>
+            <strong>$ {salesRevenue.toLocaleString("es-AR")}</strong>
+            <small>ingresos por ventas</small>
+          </div>
+          <div className="metric metric-gold">
+            <span>Ganancia bruta</span>
+            <strong>$ {grossProfit.toLocaleString("es-AR")}</strong>
+            <small>ventas menos costo</small>
+          </div>
+          <div className="metric metric-danger">
+            <span>Producto más vendido</span>
+            <strong>{bestSeller.quantity}</strong>
+            <small>{bestSeller.productName}</small>
+          </div>
+        </div>
+
+        <div className="card dashboard-panel">
+          <h2>Resumen operativo</h2>
+          <div className="dashboard-grid">
+            <div>
+              <p className="muted-label">Ventas totales</p>
+              <h3>$ {salesRevenue.toLocaleString("es-AR")}</h3>
+            </div>
+            <div>
+              <p className="muted-label">Costo total</p>
+              <h3>$ {totalCost.toLocaleString("es-AR")}</h3>
+            </div>
+            <div>
+              <p className="muted-label">Productos con stock bajo</p>
+              <h3>{lowStockProducts.length}</h3>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className={activeTab === "products" ? "panel visible" : "panel hidden"}>
         <div className="panel-grid two-up">
@@ -405,7 +582,7 @@ export default function HomePage() {
                 </label>
               </div>
 
-              <div className="row three-cols">
+              <div className="row four-cols">
                 <label>
                   Stock
                   <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} />
@@ -413,6 +590,10 @@ export default function HomePage() {
                 <label>
                   Stock mínimo
                   <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
+                </label>
+                <label>
+                  Costo
+                  <input type="number" min="0" value={productCost} onChange={(e) => setProductCost(e.target.value)} />
                 </label>
                 <div className="form-actions">
                   <button type="submit" className="primary-btn">
@@ -436,7 +617,7 @@ export default function HomePage() {
           </div>
 
           <div className="card">
-            <h2>Clientes</h2>
+            <h2>{editingCustomerId ? "Editar cliente" : "Clientes"}</h2>
             <form onSubmit={addCustomer} className="stack">
               <div className="row two-cols">
                 <label>
@@ -452,7 +633,16 @@ export default function HomePage() {
                 Observaciones
                 <textarea value={customer.notes} onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))} />
               </label>
-              <button type="submit" className="primary-btn">Guardar cliente</button>
+              <div className="form-actions">
+                <button type="submit" className="primary-btn">
+                  {editingCustomerId ? "Guardar cambios" : "Guardar cliente"}
+                </button>
+                {editingCustomerId ? (
+                  <button type="button" className="secondary-btn" onClick={resetCustomerForm}>
+                    Cancelar
+                  </button>
+                ) : null}
+              </div>
             </form>
           </div>
         </div>
@@ -567,13 +757,28 @@ export default function HomePage() {
               <ul className="customer-list">
                 {state.customers.map((customerItem) => (
                   <li key={customerItem.id}>
-                    <button type="button" onClick={() => setSelectedCustomerId(customerItem.id)} className={selectedCustomerId === customerItem.id ? "selected" : ""}>
-                      <div className="customer-avatar">{customerItem.name.charAt(0).toUpperCase()}</div>
-                      <div className="customer-info">
-                        <strong>{customerItem.name}</strong>
-                        <span>{customerItem.phone || "Sin teléfono"}</span>
+                    <div className="customer-item">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomerId(customerItem.id)}
+                        className={selectedCustomerId === customerItem.id ? "selected customer-select" : "customer-select"}
+                      >
+                        <div className="customer-avatar">{customerItem.name.charAt(0).toUpperCase()}</div>
+                        <div className="customer-info">
+                          <strong>{customerItem.name}</strong>
+                          <span>{customerItem.phone || "Sin teléfono"}</span>
+                        </div>
+                      </button>
+
+                      <div className="action-group compact-actions">
+                        <button type="button" className="row-btn edit-btn" onClick={() => editCustomer(customerItem)}>
+                          Editar
+                        </button>
+                        <button type="button" className="row-btn delete-btn" onClick={() => deleteCustomer(customerItem.id)}>
+                          Eliminar
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -665,6 +870,11 @@ export default function HomePage() {
                     <td>{sale.quantity}</td>
                     <td>{sale.customerName || "Sin cliente"}</td>
                     <td>$ {sale.total.toLocaleString("es-AR")}</td>
+                    <td>
+                      <button type="button" className="row-btn delete-btn" onClick={() => deleteSale(sale.id)}>
+                        Eliminar
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

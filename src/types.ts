@@ -5,6 +5,7 @@ export type Product = {
   category: string;
   stock: number;
   minStock: number;
+  cost: number;
 };
 
 export type Customer = {
@@ -21,6 +22,7 @@ export type Sale = {
   productName: string;
   quantity: number;
   salePrice: number;
+  costTotal: number;
   customerId?: string;
   customerName?: string;
   total: number;

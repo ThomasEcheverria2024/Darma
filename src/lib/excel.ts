@@ -15,6 +15,7 @@ const PRODUCT_KEYS = [
 const CATEGORY_KEYS = ["categoria", "category", "familia", "tipo", "linea"];
 const STOCK_KEYS = ["stock", "cantidad", "qty", "unidades", "existencias"];
 const MIN_STOCK_KEYS = ["stock_minimo", "min_stock", "minimo", "stockm", "stock_min"];
+const COST_KEYS = ["costo", "cost", "precio_costo", "cost_price", "valor_costo"];
 
 export function findFirstValue(row: Record<string, any>, keys: string[]) {
   for (const key of keys) {
@@ -42,9 +43,11 @@ export function normalizeImportedProduct(row: Record<string, any>, index: number
   const category = findFirstValue(row, CATEGORY_KEYS) || "General";
   const stockValue = findFirstValue(row, STOCK_KEYS);
   const minStockValue = findFirstValue(row, MIN_STOCK_KEYS);
+  const costValue = findFirstValue(row, COST_KEYS);
 
   const stock = Number(stockValue || 0);
   const minStock = Number(minStockValue || 0);
+  const cost = Number(costValue || 0);
 
   return {
     id: `import-${Date.now()}-${index}`,
@@ -53,5 +56,6 @@ export function normalizeImportedProduct(row: Record<string, any>, index: number
     category,
     stock: Number.isFinite(stock) ? stock : 0,
     minStock: Number.isFinite(minStock) ? minStock : 0,
+    cost: Number.isFinite(cost) ? cost : 0,
   };
 }

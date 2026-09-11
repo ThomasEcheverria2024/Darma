@@ -252,6 +252,10 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.four-cols {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .two-cols {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -373,17 +377,32 @@ textarea {
   gap: 12px;
 }
 
-.customer-list button {
+.customer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+
+.customer-select {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
   color: var(--text);
   text-align: left;
+}
+
+.customer-item .selected {
+  background: rgba(82, 214, 177, 0.08);
+  border-color: rgba(82, 214, 177, 0.5);
 }
 
 .customer-list button.selected {
@@ -492,6 +511,10 @@ tr.low-stock {
   flex-wrap: wrap;
 }
 
+.compact-actions {
+  flex-shrink: 0;
+}
+
 .row-btn {
   padding: 8px 10px;
   min-height: 36px;
@@ -557,6 +580,10 @@ tr.low-stock {
   margin: 18px 0;
 }
 
+.dashboard-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .metric {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -575,9 +602,53 @@ tr.low-stock {
   color: var(--text);
 }
 
-.metric.danger {
+.metric small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.metric-green {
+  background: rgba(82, 214, 177, 0.08);
+  border-color: rgba(82, 214, 177, 0.3);
+}
+
+.metric-blue {
+  background: rgba(104, 150, 255, 0.08);
+  border-color: rgba(104, 150, 255, 0.25);
+}
+
+.metric-gold {
+  background: rgba(255, 199, 64, 0.08);
+  border-color: rgba(255, 199, 64, 0.25);
+}
+
+.metric-danger {
   background: rgba(255, 122, 122, 0.06);
   border-color: rgba(255, 122, 122, 0.2);
+}
+
+.dashboard-panel {
+  padding: 24px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.muted-label {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dashboard-grid h3 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2vw, 2.2rem);
 }
 
 .alert {
