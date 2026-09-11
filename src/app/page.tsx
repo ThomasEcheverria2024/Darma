@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import * as XLSX from "xlsx";
+import { loginUser, registerUser } from "@/lib/auth";
 import { loadState, persistState } from "@/lib/storage";
 import { normalizeImportedProduct } from "@/lib/excel";
 import type { AppState, Customer, Product, Sale } from "@/types";
@@ -22,6 +23,22 @@ const PAGE_SIZE = 8;
 
 type TabKey = "dashboard" | "products" | "customers" | "sales";
 
+type SaleLineDraft = {
+  id: string;
+  productId: string;
+  quantity: string;
+  salePrice: string;
+};
+
+function createEmptySaleLine(productId = ""): SaleLineDraft {
+  return {
+    id: crypto.randomUUID(),
+    productId,
+    quantity: "1",
+    salePrice: "0",
+  };
+}
+
 export default function HomePage() {
   const [state, setState] = useState<AppState>(defaultState);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
@@ -33,17 +50,21 @@ export default function HomePage() {
   const [productCost, setProductCost] = useState("0");
   const [customer, setCustomer] = useState(emptyCustomer);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
-  const [saleProductId, setSaleProductId] = useState("");
-  const [saleQuantity, setSaleQuantity] = useState("1");
-  const [salePrice, setSalePrice] = useState("0");
+  const [saleLines, setSaleLines] = useState<SaleLineDraft[]>([createEmptySaleLine()]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [darkMode, setDarkMode] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [loginEmail, setLoginEmail] = useState("admin@darma.com");
   const [loginPassword, setLoginPassword] = useState("darma123");
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productPage, setProductPage] = useState(1);
   const [productSearch, setProductSearch] = useState("");
@@ -58,8 +79,23 @@ export default function HomePage() {
       const loaded = await loadState();
       setState(loaded);
       if (loaded.products[0]) {
-        setSaleProductId(loaded.products[0].id);
+        setSaleLines([createEmptySaleLine(loaded.products[0].id)]);
       }
+
+      const savedSession = localStorage.getItem("darma-auth-session");
+
+      if (savedSession) {
+        try {
+          const parsedSession = JSON.parse(savedSession) as { loggedIn?: boolean; email?: string };
+          if (parsedSession.loggedIn) {
+            setIsAuthenticated(true);
+            setLoginEmail(parsedSession.email ?? "admin@darma.com");
+          }
+        } catch {
+          localStorage.removeItem("darma-auth-session");
+        }
+      }
+
       setLoading(false);
     }
 
@@ -73,10 +109,18 @@ export default function HomePage() {
   }, [state, loading]);
 
   useEffect(() => {
-    if (!state.products.some((product) => product.id === saleProductId)) {
-      setSaleProductId(state.products[0]?.id ?? "");
+    if (!state.products.length) {
+      return;
     }
-  }, [saleProductId, state.products]);
+
+    setSaleLines((lines) =>
+      lines.map((line) =>
+        state.products.some((product) => product.id === line.productId)
+          ? line
+          : { ...line, productId: state.products[0].id },
+      ),
+    );
+  }, [state.products]);
 
   const categories = useMemo(
     () => ["Todas", ...new Set(state.products.map((product) => product.category).filter(Boolean))],
@@ -105,16 +149,15 @@ export default function HomePage() {
     setProductPage((current) => Math.min(current, totalPages));
   }, [filteredProducts.length]);
 
-  const selectedProduct = useMemo(
-    () => state.products.find((product) => product.id === saleProductId) ?? null,
-    [saleProductId, state.products],
+  const totalSale = useMemo(
+    () =>
+      saleLines.reduce((sum, line) => {
+        const qty = Number(line.quantity || 0);
+        const price = Number(line.salePrice || 0);
+        return sum + qty * price;
+      }, 0),
+    [saleLines],
   );
-
-  const totalSale = useMemo(() => {
-    const qty = Number(saleQuantity || 0);
-    const price = Number(salePrice || 0);
-    return qty * price;
-  }, [saleQuantity, salePrice]);
 
   const lowStockProducts = state.products.filter(
     (product) => product.stock <= product.minStock,
@@ -223,7 +266,6 @@ export default function HomePage() {
 
     setError("");
     setSuccess("Producto agregado correctamente.");
-    setSaleProductId(newProduct.id);
     resetProductForm();
   }
 
@@ -264,10 +306,16 @@ export default function HomePage() {
       resetProductForm();
     }
 
-    if (saleProductId === productId) {
-      const nextProduct = state.products.find((item) => item.id !== productId);
-      setSaleProductId(nextProduct?.id ?? "");
-    }
+    setSaleLines((lines) => {
+      const remainingProducts = state.products.filter((item) => item.id !== productId);
+      const fallbackProductId = remainingProducts[0]?.id ?? "";
+
+      return lines.map((line) =>
+        line.productId === productId
+          ? { ...line, productId: fallbackProductId }
+          : line,
+      );
+    });
 
     setError("");
     setSuccess("Producto eliminado correctamente.");
@@ -397,55 +445,99 @@ export default function HomePage() {
     setSuccess("Venta eliminada correctamente.");
   }
 
+  function addSaleLine() {
+    setSaleLines((lines) => [...lines, createEmptySaleLine(state.products[0]?.id ?? "")]);
+  }
+
+  function removeSaleLine(lineId: string) {
+    setSaleLines((lines) => {
+      if (lines.length === 1) {
+        return lines;
+      }
+
+      return lines.filter((line) => line.id !== lineId);
+    });
+  }
+
+  function updateSaleLine(lineId: string, patch: Partial<SaleLineDraft>) {
+    setSaleLines((lines) =>
+      lines.map((line) => (line.id === lineId ? { ...line, ...patch } : line)),
+    );
+  }
+
   function handleSale(event: FormEvent) {
     event.preventDefault();
-    if (!selectedProduct) {
-      setError("Debes seleccionar un producto para la venta.");
-      return;
-    }
 
-    const quantity = Number(saleQuantity || 0);
-    const price = Number(salePrice || 0);
-
-    if (quantity <= 0 || price < 0) {
-      setError("La cantidad y el precio de venta deben ser válidos.");
-      return;
-    }
-
-    if (selectedProduct.stock < quantity) {
-      setError("No hay suficiente stock para esa venta.");
+    if (!state.products.length) {
+      setError("No hay productos cargados para vender.");
       return;
     }
 
     const customerSelected = state.customers.find((item) => item.id === selectedCustomerId);
-    const costTotal = Number(selectedProduct.cost ?? 0) * quantity;
+    const validatedLines: Array<{ product: Product; quantity: number; price: number }> = [];
 
-    const sale: Sale = {
+    for (const line of saleLines) {
+      const product = state.products.find((item) => item.id === line.productId);
+
+      if (!product) {
+        setError("Seleccioná un producto válido en cada artículo.");
+        return;
+      }
+
+      const quantity = Number(line.quantity || 0);
+      const price = Number(line.salePrice || 0);
+
+      if (quantity <= 0 || price < 0) {
+        setError("La cantidad y el precio de venta deben ser válidos en todos los artículos.");
+        return;
+      }
+
+      validatedLines.push({ product, quantity, price });
+    }
+
+    const stockNeeded = validatedLines.reduce<Record<string, number>>((acc, line) => {
+      acc[line.product.id] = (acc[line.product.id] ?? 0) + line.quantity;
+      return acc;
+    }, {});
+
+    for (const [productId, needed] of Object.entries(stockNeeded)) {
+      const product = state.products.find((item) => item.id === productId);
+
+      if (product && product.stock < needed) {
+        setError(`No hay suficiente stock de ${product.name} (necesitás ${needed}, hay ${product.stock}).`);
+        return;
+      }
+    }
+
+    const saleDate = new Date().toISOString();
+    const newSales: Sale[] = validatedLines.map((line) => ({
       id: crypto.randomUUID(),
-      date: new Date().toISOString(),
-      productId: selectedProduct.id,
-      productName: selectedProduct.name,
-      quantity,
-      salePrice: price,
-      costTotal,
+      date: saleDate,
+      productId: line.product.id,
+      productName: line.product.name,
+      quantity: line.quantity,
+      salePrice: line.price,
+      costTotal: Number(line.product.cost ?? 0) * line.quantity,
       customerId: customerSelected?.id,
       customerName: customerSelected?.name,
-      total: quantity * price,
-    };
+      total: line.quantity * line.price,
+    }));
 
     setState((prev) => ({
       ...prev,
-      sales: [sale, ...prev.sales],
-      products: prev.products.map((product) =>
-        product.id === selectedProduct.id
-          ? { ...product, stock: product.stock - quantity }
-          : product,
-      ),
+      sales: [...newSales, ...prev.sales],
+      products: prev.products.map((product) => {
+        const used = stockNeeded[product.id];
+        return used ? { ...product, stock: product.stock - used } : product;
+      }),
     }));
 
-    setSaleQuantity("1");
-    setSalePrice("0");
-    setSuccess("Venta registrada con éxito.");
+    setSaleLines([createEmptySaleLine(state.products[0]?.id ?? "")]);
+    setSuccess(
+      newSales.length === 1
+        ? "Venta registrada con éxito."
+        : `Venta registrada con ${newSales.length} artículos.`,
+    );
     setError("");
   }
 
@@ -477,7 +569,16 @@ export default function HomePage() {
     event.target.value = "";
   }
 
-  function handleLogin(event: FormEvent) {
+  function persistAuthSession(email: string, name: string) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "darma-auth-session",
+        JSON.stringify({ loggedIn: true, email, name }),
+      );
+    }
+  }
+
+  async function handleLogin(event: FormEvent) {
     event.preventDefault();
 
     if (!loginEmail.trim() || !loginPassword.trim()) {
@@ -485,17 +586,86 @@ export default function HomePage() {
       return;
     }
 
-    const email = loginEmail.trim().toLowerCase();
-    const password = loginPassword.trim();
+    setAuthSubmitting(true);
 
-    if (email === "admin@darma.com" && password === "darma123") {
-      setIsAuthenticated(true);
-      setError("");
-      setSuccess("Sesión iniciada correctamente.");
+    try {
+      const result = await loginUser(loginEmail, loginPassword);
+
+      if (result.user) {
+        setIsAuthenticated(true);
+        setError("");
+        setSuccess("Sesión iniciada correctamente.");
+        persistAuthSession(result.user.email, result.user.name);
+        return;
+      }
+
+      setError(result.error ?? "Credenciales inválidas. Revisá el email y la contraseña.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function handleRegister(event: FormEvent) {
+    event.preventDefault();
+
+    const name = registerName.trim();
+    const email = registerEmail.trim().toLowerCase();
+    const password = registerPassword.trim();
+    const confirmPassword = registerConfirmPassword.trim();
+
+    if (!name) {
+      setError("El nombre es obligatorio para crear un usuario.");
       return;
     }
 
-    setError("Credenciales inválidas. Usá admin@darma.com / darma123");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Ingresá un email válido.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setAuthSubmitting(true);
+
+    try {
+      const result = await registerUser(name, email, password);
+
+      if (result.user) {
+        setLoginEmail(result.user.email);
+        setLoginPassword(password);
+        setRegisterName("");
+        setRegisterEmail("");
+        setRegisterPassword("");
+        setRegisterConfirmPassword("");
+        setAuthMode("login");
+        setIsAuthenticated(true);
+        persistAuthSession(result.user.email, result.user.name);
+        setError("");
+        setSuccess("Usuario creado y sesión iniciada.");
+        return;
+      }
+
+      setError(result.error ?? "No se pudo crear el usuario.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  function handleLogout() {
+    setIsAuthenticated(false);
+    setError("");
+    setSuccess("Sesión cerrada correctamente.");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("darma-auth-session");
+    }
   }
 
   if (!isAuthenticated) {
@@ -513,38 +683,116 @@ export default function HomePage() {
             </div>
           </div>
 
-          <form onSubmit={handleLogin} className="login-form">
-            <label>
-              Email
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="admin@darma.com"
-              />
-            </label>
-
-            <label>
-              Contraseña
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </label>
-
-            {error ? <div className="alert error">{error}</div> : null}
-            {success ? <div className="alert success">{success}</div> : null}
-
-            <button type="submit" className="primary-btn login-btn">
+          <div className="auth-mode-switch" aria-label="Elegir modo de acceso">
+            <button
+              type="button"
+              className={authMode === "login" ? "auth-tab active" : "auth-tab"}
+              onClick={() => {
+                setAuthMode("login");
+                setError("");
+                setSuccess("");
+              }}
+            >
               Ingresar
             </button>
-          </form>
+            <button
+              type="button"
+              className={authMode === "register" ? "auth-tab active" : "auth-tab"}
+              onClick={() => {
+                setAuthMode("register");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Crear usuario
+            </button>
+          </div>
 
-          <p className="login-credentials">
-            Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
-          </p>
+          {authMode === "login" ? (
+            <form onSubmit={handleLogin} className="login-form">
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="admin@darma.com"
+                />
+              </label>
+
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </label>
+
+              {error ? <div className="alert error">{error}</div> : null}
+              {success ? <div className="alert success">{success}</div> : null}
+
+              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
+                {authSubmitting ? "Ingresando..." : "Ingresar"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="login-form">
+              <label>
+                Nombre
+                <input
+                  type="text"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  placeholder="Tu nombre"
+                />
+              </label>
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  placeholder="usuario@correo.com"
+                />
+              </label>
+
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+
+              <label>
+                Repetir contraseña
+                <input
+                  type="password"
+                  value={registerConfirmPassword}
+                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                  placeholder="Confirmá la contraseña"
+                />
+              </label>
+
+              {error ? <div className="alert error">{error}</div> : null}
+              {success ? <div className="alert success">{success}</div> : null}
+
+              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
+                {authSubmitting ? "Creando cuenta..." : "Crear cuenta"}
+              </button>
+            </form>
+          )}
+
+          {authMode === "login" ? (
+            <p className="login-credentials">
+              Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
+            </p>
+          ) : null}
         </div>
       </main>
     );
@@ -567,6 +815,9 @@ export default function HomePage() {
         <div className="header-actions">
           <button type="button" className="theme-toggle" onClick={() => setDarkMode((current) => !current)}>
             {darkMode ? "Modo claro" : "Modo oscuro"}
+          </button>
+          <button type="button" className="secondary-btn logout-btn" onClick={handleLogout}>
+            Cerrar sesión
           </button>
           <div className="top-status">
             <span>{loading ? "Cargando..." : `${state.products.length} productos`}</span>
@@ -871,24 +1122,62 @@ export default function HomePage() {
         <div className="card sales-card">
           <h2>Registrar venta</h2>
           <form onSubmit={handleSale} className="stack">
-            <div className="row three-cols">
-              <label>
-                Producto
-                <select value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
-                  {state.products.map((product) => (
-                    <option key={product.id} value={product.id}>{product.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Cantidad
-                <input type="number" min="1" value={saleQuantity} onChange={(e) => setSaleQuantity(e.target.value)} />
-              </label>
-              <label>
-                Precio de venta
-                <input type="number" min="0" step="1" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
-              </label>
+            <div className="sale-lines">
+              {saleLines.map((line, index) => {
+                const lineProduct = state.products.find((product) => product.id === line.productId);
+
+                return (
+                  <div key={line.id} className="sale-line-row">
+                    <label>
+                      Artículo {index + 1}
+                      <select
+                        value={line.productId}
+                        onChange={(e) => updateSaleLine(line.id, { productId: e.target.value })}
+                      >
+                        {state.products.map((product) => (
+                          <option key={product.id} value={product.id}>{product.name}</option>
+                        ))}
+                      </select>
+                      {lineProduct ? (
+                        <span className="sale-line-stock">Stock disponible: {lineProduct.stock}</span>
+                      ) : null}
+                    </label>
+                    <label>
+                      Cantidad
+                      <input
+                        type="number"
+                        min="1"
+                        value={line.quantity}
+                        onChange={(e) => updateSaleLine(line.id, { quantity: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Precio de venta
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={line.salePrice}
+                        onChange={(e) => updateSaleLine(line.id, { salePrice: e.target.value })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => removeSaleLine(line.id)}
+                      disabled={saleLines.length === 1}
+                      aria-label={`Quitar artículo ${index + 1}`}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                );
+              })}
             </div>
+
+            <button type="button" className="secondary-btn add-sale-line-btn" onClick={addSaleLine}>
+              + Agregar artículo
+            </button>
 
             <div className="row two-cols sales-summary-row">
               <label>
@@ -904,7 +1193,7 @@ export default function HomePage() {
               <div className="summary-box">
                 <span>TOTAL</span>
                 <strong>$ {totalSale.toLocaleString("es-AR")}</strong>
-                {selectedProduct ? <small>Stock disponible: {selectedProduct.stock}</small> : null}
+                <small>{saleLines.length} artículo{saleLines.length === 1 ? "" : "s"} en la venta</small>
               </div>
             </div>
 

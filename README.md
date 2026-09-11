@@ -51,6 +51,14 @@ Esto crea las tablas:
 - products
 - customers
 - sales
+- users
+
+También crea funciones seguras para registrar e iniciar sesión (`register_user`, `login_user`) y un usuario demo:
+
+- Email: `admin@darma.com`
+- Contraseña: `darma123`
+
+Si ya ejecutaste el schema antes, volvé a correr solo la sección de `users` al final de `supabase/schema.sql`.
 
 ## Deploy en Vercel
 

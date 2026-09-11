@@ -176,6 +176,10 @@ button {
   font-weight: 700;
 }
 
+.logout-btn {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .tabs {
   display: flex;
   gap: 12px;
@@ -281,6 +285,30 @@ textarea {
   background: var(--input-bg);
   color: var(--text);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select {
+  background-color: var(--panel-raised);
+  color: var(--text);
+  cursor: pointer;
+}
+
+select option,
+select optgroup {
+  background-color: var(--panel-raised);
+  color: var(--text);
+}
+
+body[data-theme="light"] select option,
+body[data-theme="light"] select optgroup {
+  background-color: #ffffff;
+  color: #101821;
+}
+
+body[data-theme="dark"] select option,
+body[data-theme="dark"] select optgroup {
+  background-color: #111419;
+  color: #edf3f7;
 }
 
 input:focus,
@@ -547,6 +575,34 @@ tr.low-stock {
   cursor: not-allowed;
 }
 
+.sale-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sale-line-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(90px, 1fr) minmax(110px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sale-line-stock {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.add-sale-line-btn {
+  align-self: flex-start;
+}
+
 .summary-box {
   min-height: 140px;
   border-radius: 18px;
@@ -670,6 +726,31 @@ tr.low-stock {
   box-shadow: var(--shadow);
 }
 
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 22px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}
+
+.auth-tab {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.auth-tab.active {
+  background: linear-gradient(135deg, rgba(121, 240, 209, 0.18), rgba(121, 240, 209, 0.06));
+  color: var(--text);
+}
+
 .login-brand {
   display: flex;
   align-items: center;
@@ -752,5 +833,9 @@ tr.low-stock {
   .form-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .sale-line-row {
+    grid-template-columns: 1fr;
   }
 }
