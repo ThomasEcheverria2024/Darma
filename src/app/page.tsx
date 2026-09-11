@@ -18,8 +18,11 @@ const defaultState: AppState = {
   sales: [],
 };
 
+type TabKey = "products" | "customers" | "sales";
+
 export default function HomePage() {
   const [state, setState] = useState<AppState>(defaultState);
+  const [activeTab, setActiveTab] = useState<TabKey>("products");
   const [productCode, setProductCode] = useState("");
   const [productName, setProductName] = useState("");
   const [productCategory, setProductCategory] = useState("General");
@@ -209,57 +212,107 @@ export default function HomePage() {
 
   return (
     <main className="page-shell">
-      <div className="topbar">
-        <div>
-          <p className="eyebrow">Gestión de ventas</p>
-          <h1>Darma</h1>
+      <header className="brand-header">
+        <div className="brand-block">
+          <div className="brand-mark" aria-hidden="true">
+            <span className="mark-slice slice-one" />
+            <span className="mark-slice slice-two" />
+          </div>
+          <div className="brand-copy">
+            <h1>DARMA</h1>
+            <span>DISTRIBUTION</span>
+          </div>
         </div>
-        <div className="status-pill">
-          {loading ? "Cargando..." : `${state.products.length} productos`}
+
+        <div className="top-status">
+          <span>{loading ? "Cargando..." : `${state.products.length} productos`}</span>
         </div>
-      </div>
+      </header>
 
       {error ? <div className="alert error">{error}</div> : null}
       {success ? <div className="alert success">{success}</div> : null}
 
-      <section className="grid two-columns">
-        <div className="card">
-          <h2>Productos</h2>
-          <form onSubmit={addProduct} className="stack">
-            <div className="row three-cols">
-              <label>
-                Código
-                <input value={productCode} onChange={(e) => setProductCode(e.target.value)} />
-              </label>
-              <label>
-                Nombre
-                <input value={productName} onChange={(e) => setProductName(e.target.value)} />
-              </label>
-              <label>
-                Categoría
-                <input value={productCategory} onChange={(e) => setProductCategory(e.target.value)} />
-              </label>
-            </div>
-            <div className="row three-cols">
-              <label>
-                Stock
-                <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} />
-              </label>
-              <label>
-                Stock mínimo
-                <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
-              </label>
-              <button type="submit" className="primary-btn">Agregar producto</button>
-            </div>
-          </form>
+      <nav className="tabs" aria-label="Secciones principales">
+        {[
+          { key: "products", label: "Productos" },
+          { key: "customers", label: "Clientes" },
+          { key: "sales", label: "Ventas" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={activeTab === tab.key ? "tab-button active" : "tab-button"}
+            onClick={() => setActiveTab(tab.key as TabKey)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
-          <div className="import-box">
-            <label className="upload-label">
-              Importar lista de Excel
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelImport} />
-            </label>
+      <section className={activeTab === "products" ? "panel visible" : "panel hidden"}>
+        <div className="panel-grid two-up">
+          <div className="card">
+            <h2>Productos</h2>
+            <form onSubmit={addProduct} className="stack">
+              <div className="row three-cols">
+                <label>
+                  Código
+                  <input value={productCode} onChange={(e) => setProductCode(e.target.value)} />
+                </label>
+                <label>
+                  Nombre
+                  <input value={productName} onChange={(e) => setProductName(e.target.value)} />
+                </label>
+                <label>
+                  Categoría
+                  <input value={productCategory} onChange={(e) => setProductCategory(e.target.value)} />
+                </label>
+              </div>
+
+              <div className="row three-cols">
+                <label>
+                  Stock
+                  <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} />
+                </label>
+                <label>
+                  Stock mínimo
+                  <input type="number" value={productMinStock} onChange={(e) => setProductMinStock(e.target.value)} />
+                </label>
+                <button type="submit" className="primary-btn">Agregar producto</button>
+              </div>
+            </form>
+
+            <div className="import-box">
+              <label className="upload-label">
+                Importar lista de Excel
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelImport} />
+              </label>
+            </div>
           </div>
 
+          <div className="card">
+            <h2>Clientes</h2>
+            <form onSubmit={addCustomer} className="stack">
+              <div className="row two-cols">
+                <label>
+                  Nombre
+                  <input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
+                </label>
+                <label>
+                  Teléfono
+                  <input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
+                </label>
+              </div>
+              <label>
+                Observaciones
+                <textarea value={customer.notes} onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))} />
+              </label>
+              <button type="submit" className="primary-btn">Guardar cliente</button>
+            </form>
+          </div>
+        </div>
+
+        <div className="card product-table-card">
           <div className="table-wrap">
             <table>
               <thead>
@@ -285,35 +338,26 @@ export default function HomePage() {
             </table>
           </div>
         </div>
+      </section>
 
-        <div className="card">
-          <h2>Clientes</h2>
-          <form onSubmit={addCustomer} className="stack">
-            <div className="row two-cols">
-              <label>
-                Nombre
-                <input value={customer.name} onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))} />
-              </label>
-              <label>
-                Teléfono
-                <input value={customer.phone} onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))} />
-              </label>
-            </div>
-            <label>
-              Observaciones
-              <textarea value={customer.notes} onChange={(e) => setCustomer((prev) => ({ ...prev, notes: e.target.value }))} />
-            </label>
-            <button type="submit" className="primary-btn">Guardar cliente</button>
-          </form>
+      <section className={activeTab === "customers" ? "panel visible" : "panel hidden"}>
+        <div className="card customer-panel">
+          <div className="customer-header">
+            <h2>Listado de clientes</h2>
+            <span>{state.customers.length} registrados</span>
+          </div>
 
-          <div className="list-box">
+          <div className="list-box customer-list-box">
             {state.customers.length ? (
               <ul className="customer-list">
                 {state.customers.map((customerItem) => (
                   <li key={customerItem.id}>
                     <button type="button" onClick={() => setSelectedCustomerId(customerItem.id)} className={selectedCustomerId === customerItem.id ? "selected" : ""}>
-                      <strong>{customerItem.name}</strong>
-                      <span>{customerItem.phone || "Sin teléfono"}</span>
+                      <div className="customer-avatar">{customerItem.name.charAt(0).toUpperCase()}</div>
+                      <div className="customer-info">
+                        <strong>{customerItem.name}</strong>
+                        <span>{customerItem.phone || "Sin teléfono"}</span>
+                      </div>
                     </button>
                   </li>
                 ))}
@@ -325,89 +369,92 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="card sales-card">
-        <h2>Registrar venta</h2>
-        <form onSubmit={handleSale} className="stack">
-          <div className="row three-cols">
-            <label>
-              Producto
-              <select value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
-                {state.products.map((product) => (
-                  <option key={product.id} value={product.id}>{product.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Cantidad
-              <input type="number" min="1" value={saleQuantity} onChange={(e) => setSaleQuantity(e.target.value)} />
-            </label>
-            <label>
-              Precio de venta
-              <input type="number" min="0" step="1" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
-            </label>
-          </div>
+      <section className={activeTab === "sales" ? "panel visible" : "panel hidden"}>
+        <div className="card sales-card">
+          <h2>Registrar venta</h2>
+          <form onSubmit={handleSale} className="stack">
+            <div className="row three-cols">
+              <label>
+                Producto
+                <select value={saleProductId} onChange={(e) => setSaleProductId(e.target.value)}>
+                  {state.products.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Cantidad
+                <input type="number" min="1" value={saleQuantity} onChange={(e) => setSaleQuantity(e.target.value)} />
+              </label>
+              <label>
+                Precio de venta
+                <input type="number" min="0" step="1" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
+              </label>
+            </div>
 
-          <div className="row two-cols">
-            <label>
-              Cliente (opcional)
-              <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}>
-                <option value="">Sin cliente</option>
-                {state.customers.map((customerItem) => (
-                  <option key={customerItem.id} value={customerItem.id}>{customerItem.name}</option>
-                ))}
-              </select>
-            </label>
-            <div className="summary-box">
-              <span>Total</span>
-              <strong>$ {totalSale.toLocaleString("es-AR")}</strong>
-              {selectedProduct ? <small>Stock disponible: {selectedProduct.stock}</small> : null}
+            <div className="row two-cols sales-summary-row">
+              <label>
+                Cliente (opcional)
+                <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}>
+                  <option value="">Sin cliente</option>
+                  {state.customers.map((customerItem) => (
+                    <option key={customerItem.id} value={customerItem.id}>{customerItem.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="summary-box">
+                <span>TOTAL</span>
+                <strong>$ {totalSale.toLocaleString("es-AR")}</strong>
+                {selectedProduct ? <small>Stock disponible: {selectedProduct.stock}</small> : null}
+              </div>
+            </div>
+
+            <button type="submit" className="primary-btn submit-btn">Guardar venta</button>
+          </form>
+        </div>
+
+        <div className="card sales-history-card">
+          <h2>Resumen</h2>
+          <div className="metrics-row">
+            <div className="metric">
+              <span>Ventas</span>
+              <strong>{state.sales.length}</strong>
+            </div>
+            <div className="metric">
+              <span>Clientes</span>
+              <strong>{state.customers.length}</strong>
+            </div>
+            <div className="metric danger">
+              <span>Stock bajo</span>
+              <strong>{lowStockProducts.length}</strong>
             </div>
           </div>
 
-          <button type="submit" className="primary-btn submit-btn">Guardar venta</button>
-        </form>
-      </section>
-
-      <section className="card">
-        <h2>Resumen</h2>
-        <div className="metrics-row">
-          <div className="metric">
-            <span>Ventas</span>
-            <strong>{state.sales.length}</strong>
-          </div>
-          <div className="metric">
-            <span>Clientes</span>
-            <strong>{state.customers.length}</strong>
-          </div>
-          <div className="metric danger">
-            <span>Stock bajo</span>
-            <strong>{lowStockProducts.length}</strong>
-          </div>
-        </div>
-
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Cliente</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.sales.map((sale) => (
-                <tr key={sale.id}>
-                  <td>{new Date(sale.date).toLocaleDateString("es-AR")}</td>
-                  <td>{sale.productName}</td>
-                  <td>{sale.quantity}</td>
-                  <td>{sale.customerName || "Sin cliente"}</td>
-                  <td>$ {sale.total.toLocaleString("es-AR")}</td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Cliente</th>
+                  <th>Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {state.sales.map((sale) => (
+                  <tr key={sale.id}>
+                    <td>{new Date(sale.date).toLocaleDateString("es-AR")}</td>
+                    <td>{sale.productName}</td>
+                    <td>{sale.quantity}</td>
+                    <td>{sale.customerName || "Sin cliente"}</td>
+                    <td>$ {sale.total.toLocaleString("es-AR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
