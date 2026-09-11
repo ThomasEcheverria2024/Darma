@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import * as XLSX from "xlsx";
-import { loginUser, registerUser } from "@/lib/auth";
+import { loginUser } from "@/lib/auth";
 import { loadState, persistState } from "@/lib/storage";
 import { normalizeImportedProduct } from "@/lib/excel";
 import type { AppState, Customer, Product, Sale } from "@/types";
@@ -57,14 +57,9 @@ export default function HomePage() {
   const [success, setSuccess] = useState("");
   const [darkMode, setDarkMode] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [loginEmail, setLoginEmail] = useState("admin@darma.com");
   const [loginPassword, setLoginPassword] = useState("darma123");
-  const [registerName, setRegisterName] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-  const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productPage, setProductPage] = useState(1);
   const [productSearch, setProductSearch] = useState("");
@@ -605,60 +600,6 @@ export default function HomePage() {
     }
   }
 
-  async function handleRegister(event: FormEvent) {
-    event.preventDefault();
-
-    const name = registerName.trim();
-    const email = registerEmail.trim().toLowerCase();
-    const password = registerPassword.trim();
-    const confirmPassword = registerConfirmPassword.trim();
-
-    if (!name) {
-      setError("El nombre es obligatorio para crear un usuario.");
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Ingresá un email válido.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-
-    setAuthSubmitting(true);
-
-    try {
-      const result = await registerUser(name, email, password);
-
-      if (result.user) {
-        setLoginEmail(result.user.email);
-        setLoginPassword(password);
-        setRegisterName("");
-        setRegisterEmail("");
-        setRegisterPassword("");
-        setRegisterConfirmPassword("");
-        setAuthMode("login");
-        setIsAuthenticated(true);
-        persistAuthSession(result.user.email, result.user.name);
-        setError("");
-        setSuccess("Usuario creado y sesión iniciada.");
-        return;
-      }
-
-      setError(result.error ?? "No se pudo crear el usuario.");
-    } finally {
-      setAuthSubmitting(false);
-    }
-  }
-
   function handleLogout() {
     setIsAuthenticated(false);
     setError("");
@@ -683,116 +624,38 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="auth-mode-switch" aria-label="Elegir modo de acceso">
-            <button
-              type="button"
-              className={authMode === "login" ? "auth-tab active" : "auth-tab"}
-              onClick={() => {
-                setAuthMode("login");
-                setError("");
-                setSuccess("");
-              }}
-            >
-              Ingresar
+          <form onSubmit={handleLogin} className="login-form">
+            <label>
+              Email
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="admin@darma.com"
+              />
+            </label>
+
+            <label>
+              Contraseña
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </label>
+
+            {error ? <div className="alert error">{error}</div> : null}
+            {success ? <div className="alert success">{success}</div> : null}
+
+            <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
+              {authSubmitting ? "Ingresando..." : "Ingresar"}
             </button>
-            <button
-              type="button"
-              className={authMode === "register" ? "auth-tab active" : "auth-tab"}
-              onClick={() => {
-                setAuthMode("register");
-                setError("");
-                setSuccess("");
-              }}
-            >
-              Crear usuario
-            </button>
-          </div>
+          </form>
 
-          {authMode === "login" ? (
-            <form onSubmit={handleLogin} className="login-form">
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="admin@darma.com"
-                />
-              </label>
-
-              <label>
-                Contraseña
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </label>
-
-              {error ? <div className="alert error">{error}</div> : null}
-              {success ? <div className="alert success">{success}</div> : null}
-
-              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
-                {authSubmitting ? "Ingresando..." : "Ingresar"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="login-form">
-              <label>
-                Nombre
-                <input
-                  type="text"
-                  value={registerName}
-                  onChange={(e) => setRegisterName(e.target.value)}
-                  placeholder="Tu nombre"
-                />
-              </label>
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  placeholder="usuario@correo.com"
-                />
-              </label>
-
-              <label>
-                Contraseña
-                <input
-                  type="password"
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                />
-              </label>
-
-              <label>
-                Repetir contraseña
-                <input
-                  type="password"
-                  value={registerConfirmPassword}
-                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                  placeholder="Confirmá la contraseña"
-                />
-              </label>
-
-              {error ? <div className="alert error">{error}</div> : null}
-              {success ? <div className="alert success">{success}</div> : null}
-
-              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
-                {authSubmitting ? "Creando cuenta..." : "Crear cuenta"}
-              </button>
-            </form>
-          )}
-
-          {authMode === "login" ? (
-            <p className="login-credentials">
-              Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
-            </p>
-          ) : null}
+          <p className="login-credentials">
+            Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
+          </p>
         </div>
       </main>
     );
