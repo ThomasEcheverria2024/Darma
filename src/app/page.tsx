@@ -28,15 +28,33 @@ type SaleLineDraft = {
   productId: string;
   quantity: string;
   salePrice: string;
+  search: string;
 };
 
-function createEmptySaleLine(productId = "", salePrice = "0"): SaleLineDraft {
+function getProductSalePrice(product?: Product) {
+  return String(product?.cost ?? 0);
+}
+
+function createEmptySaleLine(productId = "", salePrice = "0", search = ""): SaleLineDraft {
   return {
     id: crypto.randomUUID(),
     productId,
     quantity: "1",
     salePrice,
+    search,
   };
+}
+
+function matchesProductQuery(product: Product, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return (
+    product.name.toLowerCase().includes(query) ||
+    product.code.toLowerCase().includes(query) ||
+    product.category.toLowerCase().includes(query)
+  );
 }
 
 export default function HomePage() {
@@ -74,7 +92,8 @@ export default function HomePage() {
       const loaded = await loadState();
       setState(loaded);
       if (loaded.products[0]) {
-        setSaleLines([createEmptySaleLine(loaded.products[0].id)]);
+        const firstProduct = loaded.products[0];
+        setSaleLines([createEmptySaleLine(firstProduct.id, getProductSalePrice(firstProduct))]);
       }
 
       const savedSession = localStorage.getItem("darma-auth-session");
@@ -442,8 +461,10 @@ export default function HomePage() {
 
   function addSaleLine() {
     const defaultProduct = state.products[0];
-    const defaultPrice = defaultProduct ? String(defaultProduct.cost ?? 0) : "0";
-    setSaleLines((lines) => [...lines, createEmptySaleLine(defaultProduct?.id ?? "", defaultPrice)]);
+    setSaleLines((lines) => [
+      ...lines,
+      createEmptySaleLine(defaultProduct?.id ?? "", getProductSalePrice(defaultProduct)),
+    ]);
   }
 
   function removeSaleLine(lineId: string) {
@@ -463,11 +484,23 @@ export default function HomePage() {
 
         const updated = { ...line, ...patch };
 
-        // If product changed, update default sale price if price was unchanged or 0
+        if (patch.search !== undefined) {
+          const query = patch.search.trim().toLowerCase();
+          const matches = state.products.filter((product) => matchesProductQuery(product, query));
+
+          if (!matches.some((product) => product.id === updated.productId)) {
+            const firstMatch = matches[0];
+            updated.productId = firstMatch?.id ?? "";
+            if (firstMatch) {
+              updated.salePrice = getProductSalePrice(firstMatch);
+            }
+          }
+        }
+
         if (patch.productId && patch.productId !== line.productId) {
           const newProduct = state.products.find((p) => p.id === patch.productId);
           if (newProduct && (line.salePrice === "0" || !line.salePrice)) {
-            updated.salePrice = String(newProduct.cost ?? 0);
+            updated.salePrice = getProductSalePrice(newProduct);
           }
         }
 
@@ -543,7 +576,8 @@ export default function HomePage() {
       }),
     }));
 
-    setSaleLines([createEmptySaleLine(state.products[0]?.id ?? "")]);
+    const defaultProduct = state.products[0];
+    setSaleLines([createEmptySaleLine(defaultProduct?.id ?? "", getProductSalePrice(defaultProduct))]);
     setSuccess(
       newSales.length === 1
         ? "Venta registrada con éxito."
@@ -1003,24 +1037,47 @@ export default function HomePage() {
           <form onSubmit={handleSale} className="stack">
             <div className="sale-lines">
               {saleLines.map((line, index) => {
+                const query = (line.search ?? "").trim().toLowerCase();
+                const filteredSaleProducts = state.products.filter((product) =>
+                  matchesProductQuery(product, query),
+                );
                 const lineProduct = state.products.find((product) => product.id === line.productId);
 
                 return (
                   <div key={line.id} className="sale-line-row">
-                    <label>
-                      Artículo {index + 1}
-                      <select
-                        value={line.productId}
-                        onChange={(e) => updateSaleLine(line.id, { productId: e.target.value })}
-                      >
-                        {state.products.map((product) => (
-                          <option key={product.id} value={product.id}>{product.name}</option>
-                        ))}
-                      </select>
-                      {lineProduct ? (
-                        <span className="sale-line-stock">Stock disponible: {lineProduct.stock}</span>
-                      ) : null}
-                    </label>
+                    <div className="sale-product-selector">
+                      <label>
+                        Buscar producto
+                        <input
+                          value={line.search}
+                          onChange={(e) => updateSaleLine(line.id, { search: e.target.value })}
+                          placeholder="Nombre, código o categoría"
+                        />
+                      </label>
+
+                      <label>
+                        Artículo {index + 1}
+                        <select
+                          value={line.productId}
+                          onChange={(e) => updateSaleLine(line.id, { productId: e.target.value })}
+                        >
+                          {filteredSaleProducts.length ? (
+                            filteredSaleProducts.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {product.code} — {product.name}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="">No hay coincidencias</option>
+                          )}
+                        </select>
+                        {lineProduct ? (
+                          <span className="sale-line-stock">Stock disponible: {lineProduct.stock}</span>
+                        ) : (
+                          <span className="sale-line-stock">Escribí para filtrar el listado.</span>
+                        )}
+                      </label>
+                    </div>
                     <label>
                       Cantidad
                       <input
@@ -1106,6 +1163,7 @@ export default function HomePage() {
                   <th>Cantidad</th>
                   <th>Cliente</th>
                   <th>Total</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>

@@ -591,13 +591,24 @@ tr.low-stock {
 
 .sale-line-row {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(90px, 1fr) minmax(110px, 1fr) auto;
+  grid-template-columns: minmax(0, 2.3fr) minmax(90px, 1fr) minmax(110px, 1fr) auto;
   gap: 12px;
   align-items: end;
   padding: 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.sale-product-selector {
+  display: grid;
+  gap: 10px;
+}
+
+.sale-product-selector label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sale-line-stock {
