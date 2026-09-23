@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import * as XLSX from "xlsx";
-import { loginUser } from "@/lib/auth";
+import { loginUser, registerUser } from "@/lib/auth";
 import { loadState, persistState } from "@/lib/storage";
 import { normalizeImportedProduct } from "@/lib/excel";
 import type { AppState, Customer, Product, Sale } from "@/types";
@@ -76,8 +76,12 @@ export default function HomePage() {
   const [darkMode, setDarkMode] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [loginEmail, setLoginEmail] = useState("admin@darma.com");
   const [loginPassword, setLoginPassword] = useState("darma123");
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productPage, setProductPage] = useState(1);
   const [productSearch, setProductSearch] = useState("");
@@ -631,6 +635,32 @@ export default function HomePage() {
     }
   }
 
+  async function handleRegister(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setAuthSubmitting(true);
+
+    try {
+      const result = await registerUser(registerName, registerEmail, registerPassword);
+
+      if (!result.user) {
+        setError(result.error ?? "No se pudo crear la cuenta. Intentá de nuevo.");
+        return;
+      }
+
+      setLoginEmail(result.user.email);
+      setLoginPassword("");
+      setIsAuthenticated(true);
+      persistAuthSession(result.user.email, result.user.name);
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPassword("");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
   function handleLogout() {
     setIsAuthenticated(false);
     setError("");
@@ -655,38 +685,120 @@ export default function HomePage() {
             </div>
           </div>
 
-          <form onSubmit={handleLogin} className="login-form">
-            <label>
-              Email
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="admin@darma.com"
-              />
-            </label>
-
-            <label>
-              Contraseña
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </label>
-
-            {error ? <div className="alert error">{error}</div> : null}
-            {success ? <div className="alert success">{success}</div> : null}
-
-            <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
-              {authSubmitting ? "Ingresando..." : "Ingresar"}
+          <div className="auth-mode-switch" role="tablist" aria-label="Acceso a la cuenta">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === "login"}
+              className={`auth-tab${authMode === "login" ? " active" : ""}`}
+              onClick={() => {
+                setAuthMode("login");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Ingresar
             </button>
-          </form>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMode === "register"}
+              className={`auth-tab${authMode === "register" ? " active" : ""}`}
+              onClick={() => {
+                setAuthMode("register");
+                setError("");
+                setSuccess("");
+              }}
+            >
+              Crear cuenta
+            </button>
+          </div>
 
-          <p className="login-credentials">
-            Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
-          </p>
+          {authMode === "login" ? (
+            <form onSubmit={handleLogin} className="login-form">
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="admin@darma.com"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+
+              {error ? <div className="alert error">{error}</div> : null}
+              {success ? <div className="alert success">{success}</div> : null}
+
+              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
+                {authSubmitting ? "Ingresando..." : "Ingresar"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="login-form">
+              <label>
+                Nombre
+                <input
+                  type="text"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  placeholder="Tu nombre"
+                  autoComplete="name"
+                  required
+                />
+              </label>
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  placeholder="nombre@ejemplo.com"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete="new-password"
+                  minLength={6}
+                  required
+                />
+              </label>
+
+              {error ? <div className="alert error">{error}</div> : null}
+
+              <button type="submit" className="primary-btn login-btn" disabled={authSubmitting}>
+                {authSubmitting ? "Creando cuenta..." : "Crear cuenta"}
+              </button>
+            </form>
+          )}
+
+          {authMode === "login" ? (
+            <p className="login-credentials">
+              Demo: <strong>admin@darma.com</strong> / <strong>darma123</strong>
+            </p>
+          ) : null}
         </div>
       </main>
     );
