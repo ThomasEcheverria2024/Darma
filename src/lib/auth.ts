@@ -78,11 +78,8 @@ export async function loginUser(
         return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
       }
 
-      // If rpc fails specifically due to user credentials/validation error from function, map it.
-      // If RPC procedure doesn't exist (e.g. 404 / PGRST202), fall back to local auth.
-      if (error.code && error.code !== "PGRST202" && !error.message?.includes("404")) {
-        return { user: null, error: mapSupabaseAuthError(error) };
-      }
+      // The login RPC returns null for invalid credentials. Other RPC errors mean
+      // remote auth is unavailable, so allow the seeded/local demo account to work.
     } catch {
       // Fall through to local fallback
     }
