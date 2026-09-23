@@ -719,6 +719,8 @@ export default function HomePage() {
               <label>
                 Email
                 <input
+                  id="login-email"
+                  name="email"
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
@@ -731,6 +733,8 @@ export default function HomePage() {
               <label>
                 Contraseña
                 <input
+                  id="login-password"
+                  name="password"
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
@@ -752,6 +756,8 @@ export default function HomePage() {
               <label>
                 Nombre
                 <input
+                  id="register-name"
+                  name="name"
                   type="text"
                   value={registerName}
                   onChange={(e) => setRegisterName(e.target.value)}
@@ -764,6 +770,8 @@ export default function HomePage() {
               <label>
                 Email
                 <input
+                  id="register-email"
+                  name="email"
                   type="email"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
@@ -776,6 +784,8 @@ export default function HomePage() {
               <label>
                 Contraseña
                 <input
+                  id="register-password"
+                  name="new-password"
                   type="password"
                   value={registerPassword}
                   onChange={(e) => setRegisterPassword(e.target.value)}

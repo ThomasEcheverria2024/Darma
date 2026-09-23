@@ -39,8 +39,12 @@ function saveLocalUsers(users: StoredUser[]) {
   }
 }
 
-function mapSupabaseAuthError(error: { message?: string }): string {
+function mapSupabaseAuthError(error: { code?: string; message?: string }): string {
   const message = error.message ?? "";
+
+  if (error.code === "42883") {
+    return "Supabase no encuentra una función requerida por el registro (crypt/gen_salt). Actualizá el search_path de register_user y login_user para incluir extensions.";
+  }
 
   if (message.includes("ya está registrado")) {
     return "Ese email ya está registrado.";

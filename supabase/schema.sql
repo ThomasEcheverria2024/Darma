@@ -78,7 +78,7 @@ create or replace function register_user(
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_user users%rowtype;
@@ -119,7 +119,7 @@ create or replace function login_user(
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_user users%rowtype;
