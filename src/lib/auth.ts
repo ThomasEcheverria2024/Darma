@@ -54,6 +54,10 @@ function mapSupabaseAuthError(error: { message?: string }): string {
     return "El nombre es obligatorio para crear un usuario.";
   }
 
+  if (message.includes("PGRST202")) {
+    return "No se encontró la función de registro en Supabase. Ejecutá la sección de usuarios de supabase/schema.sql en el SQL Editor.";
+  }
+
   return "No se pudo completar la operación. Intentá de nuevo.";
 }
 
@@ -106,42 +110,52 @@ export async function registerUser(
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPassword = password.trim();
 
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.rpc("register_user", {
-        p_id: crypto.randomUUID(),
-        p_name: normalizedName,
-        p_email: normalizedEmail,
-        p_password: normalizedPassword,
-      });
+  if (!normalizedName) {
+    return { user: null, error: "El nombre es obligatorio para crear un usuario." };
+  }
 
-      if (!error) {
-        return { user: data as AuthUser };
-      }
+  if (!normalizedEmail) {
+    return { user: null, error: "Ingresá un email válido." };
+  }
 
-      if (error.code && error.code !== "PGRST202" && !error.message?.includes("404")) {
-        return { user: null, error: mapSupabaseAuthError(error) };
+  if (normalizedPassword.length < 6) {
+    return { user: null, error: "La contraseña debe tener al menos 6 caracteres." };
+  }
+
+  if (!supabase) {
+    return {
+      user: null,
+      error: "Supabase no está configurado. Configurá NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY para crear cuentas persistentes.",
+    };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc("register_user", {
+      p_id: crypto.randomUUID(),
+      p_name: normalizedName,
+      p_email: normalizedEmail,
+      p_password: normalizedPassword,
+    });
+
+    if (error) {
+      if (error.code === "PGRST202") {
+        return {
+          user: null,
+          error: "No se encontró la función register_user en Supabase. Ejecutá la sección de usuarios de supabase/schema.sql en el SQL Editor.",
+        };
       }
-    } catch {
-      // Fall through to local fallback
+      return { user: null, error: mapSupabaseAuthError(error) };
     }
+
+    if (!data) {
+      return { user: null, error: "Supabase no devolvió los datos de la cuenta creada." };
+    }
+
+    return { user: data as AuthUser };
+  } catch {
+    return {
+      user: null,
+      error: "No se pudo conectar con Supabase. Revisá la URL y la clave pública configuradas.",
+    };
   }
-
-  const users = getLocalUsers();
-
-  if (users.some((user) => user.email.toLowerCase() === normalizedEmail)) {
-    return { user: null, error: "Ese email ya está registrado." };
-  }
-
-  const newUser: StoredUser = {
-    id: crypto.randomUUID(),
-    name: normalizedName,
-    email: normalizedEmail,
-    password: normalizedPassword,
-  };
-
-  saveLocalUsers([newUser, ...users]);
-
-  const user: AuthUser = { id: newUser.id, name: newUser.name, email: newUser.email };
-  return { user };
 }
