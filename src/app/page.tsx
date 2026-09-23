@@ -28,14 +28,16 @@ type SaleLineDraft = {
   productId: string;
   quantity: string;
   salePrice: string;
+  search: string;
 };
 
-function createEmptySaleLine(productId = ""): SaleLineDraft {
+function createEmptySaleLine(productId = "", search = ""): SaleLineDraft {
   return {
     id: crypto.randomUUID(),
     productId,
     quantity: "1",
     salePrice: "0",
+    search,
   };
 }
 
@@ -441,7 +443,7 @@ export default function HomePage() {
   }
 
   function addSaleLine() {
-    setSaleLines((lines) => [...lines, createEmptySaleLine(state.products[0]?.id ?? "")]);
+    setSaleLines((lines) => [...lines, createEmptySaleLine(state.products[0]?.id ?? "", "")]);
   }
 
   function removeSaleLine(lineId: string) {
@@ -527,7 +529,7 @@ export default function HomePage() {
       }),
     }));
 
-    setSaleLines([createEmptySaleLine(state.products[0]?.id ?? "")]);
+    setSaleLines([createEmptySaleLine(state.products[0]?.id ?? "", "")]);
     setSuccess(
       newSales.length === 1
         ? "Venta registrada con éxito."
@@ -988,23 +990,52 @@ export default function HomePage() {
             <div className="sale-lines">
               {saleLines.map((line, index) => {
                 const lineProduct = state.products.find((product) => product.id === line.productId);
+                const query = (line.search ?? "").trim().toLowerCase();
+                const filteredSaleProducts = state.products.filter((product) => {
+                  if (!query) return true;
+
+                  return (
+                    product.name.toLowerCase().includes(query) ||
+                    product.code.toLowerCase().includes(query) ||
+                    product.category.toLowerCase().includes(query)
+                  );
+                });
+
+                if (lineProduct && !filteredSaleProducts.some((product) => product.id === line.productId)) {
+                  filteredSaleProducts.unshift(lineProduct);
+                }
 
                 return (
                   <div key={line.id} className="sale-line-row">
-                    <label>
-                      Artículo {index + 1}
-                      <select
-                        value={line.productId}
-                        onChange={(e) => updateSaleLine(line.id, { productId: e.target.value })}
-                      >
-                        {state.products.map((product) => (
-                          <option key={product.id} value={product.id}>{product.name}</option>
-                        ))}
-                      </select>
-                      {lineProduct ? (
-                        <span className="sale-line-stock">Stock disponible: {lineProduct.stock}</span>
-                      ) : null}
-                    </label>
+                    <div className="sale-product-selector">
+                      <label>
+                        Buscar producto
+                        <input
+                          value={line.search}
+                          onChange={(e) => updateSaleLine(line.id, { search: e.target.value })}
+                          placeholder="Nombre, código o categoría"
+                        />
+                      </label>
+
+                      <label>
+                        Artículo {index + 1}
+                        <select
+                          value={line.productId}
+                          onChange={(e) => updateSaleLine(line.id, { productId: e.target.value })}
+                        >
+                          {filteredSaleProducts.length ? (
+                            filteredSaleProducts.map((product) => (
+                              <option key={product.id} value={product.id}>{product.name}</option>
+                            ))
+                          ) : (
+                            <option value="">No hay coincidencias</option>
+                          )}
+                        </select>
+                        {lineProduct ? (
+                          <span className="sale-line-stock">Stock disponible: {lineProduct.stock}</span>
+                        ) : null}
+                      </label>
+                    </div>
                     <label>
                       Cantidad
                       <input
