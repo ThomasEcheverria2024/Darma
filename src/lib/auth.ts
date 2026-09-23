@@ -39,23 +39,6 @@ function saveLocalUsers(users: StoredUser[]) {
   }
 }
 
-function mapSupabaseAuthError(error: { message?: string }): string {
-  const message = error.message ?? "";
-
-  if (message.includes("ya está registrado")) {
-    return "Ese email ya está registrado.";
-  }
-
-  if (message.includes("6 caracteres")) {
-    return "La contraseña debe tener al menos 6 caracteres.";
-  }
-
-  if (message.includes("obligatorio")) {
-    return "El nombre es obligatorio para crear un usuario.";
-  }
-
-  return "No se pudo completar la operación. Intentá de nuevo.";
-}
 
 export async function loginUser(
   email: string,
@@ -71,25 +54,11 @@ export async function loginUser(
         p_password: normalizedPassword,
       });
 
-      if (!error) {
-        if (data) {
-          return { user: data as AuthUser };
-        }
-        return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
-      }
-
-      const isMissingRpc =
-        error.code === "PGRST202" ||
-        error.code === "404" ||
-        error.message?.includes("404") ||
-        error.message?.includes("Could not find the function") ||
-        error.message?.includes("schema cache");
-
-      if (!isMissingRpc) {
-        return { user: null, error: mapSupabaseAuthError(error) };
+      if (!error && data) {
+        return { user: data as AuthUser };
       }
     } catch {
-      // Si la llamada falla por red o la RPC no existe, se intenta autenticación local.
+      // Ignorar error de llamada y pasar al fallback local
     }
   }
 
@@ -123,22 +92,11 @@ export async function registerUser(
         p_password: normalizedPassword,
       });
 
-      if (!error) {
+      if (!error && data) {
         return { user: data as AuthUser };
       }
-
-      const isMissingRpc =
-        error.code === "PGRST202" ||
-        error.code === "404" ||
-        error.message?.includes("404") ||
-        error.message?.includes("Could not find the function") ||
-        error.message?.includes("schema cache");
-
-      if (!isMissingRpc) {
-        return { user: null, error: mapSupabaseAuthError(error) };
-      }
     } catch {
-      // Fallback a almacenamiento local
+      // Fallback local
     }
   }
 
