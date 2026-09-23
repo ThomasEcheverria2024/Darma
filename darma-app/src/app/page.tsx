@@ -186,7 +186,7 @@ export default function HomePage() {
     const data = await file.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(firstSheet, { defval: "" });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
 
     const importedProducts = rows
       .map((row, index) => normalizeImportedProduct(row, index))

@@ -90,7 +90,7 @@ export async function loginUser(
   );
 
   if (matchedUser) {
-    const { password: _, ...user } = matchedUser;
+    const user: AuthUser = { id: matchedUser.id, name: matchedUser.name, email: matchedUser.email };
     return { user };
   }
 
@@ -142,6 +142,6 @@ export async function registerUser(
 
   saveLocalUsers([newUser, ...users]);
 
-  const { password: _, ...user } = newUser;
+  const user: AuthUser = { id: newUser.id, name: newUser.name, email: newUser.email };
   return { user };
 }

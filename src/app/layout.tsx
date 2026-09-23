@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "Sistema para gestión de stock, clientes y ventas de productos de limpieza automotriz.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>{children}</body>

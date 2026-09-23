@@ -150,7 +150,7 @@ const catalogProducts = [
   { id: 144, name: "HITS BONES", sku: "DAR-144", category: "TOXIC GALLON'S COMPANY", stock: 12, cost: 15730.000000000002, salePrice: 26000.0, minStock: 3 },
 ] as const;
 
-const defaultProducts: Product[] = catalogProducts.map((item) => ({
+export const defaultProducts: Product[] = catalogProducts.map((item) => ({
   id: `prod-${item.id}`,
   code: item.sku,
   name: item.name,
@@ -160,12 +160,12 @@ const defaultProducts: Product[] = catalogProducts.map((item) => ({
   cost: item.cost,
 }));
 
-const defaultCustomers: Customer[] = [
+export const defaultCustomers: Customer[] = [
   { id: "cli-1", name: "Juan Pérez", phone: "+54 11 5555-1212", notes: "Cliente frecuente" },
   { id: "cli-2", name: "María López", phone: "+54 11 5555-9898", notes: "Entrega en taller" },
 ];
 
-const defaultSales: Sale[] = [
+export const defaultSales: Sale[] = [
   {
     id: "sale-1",
     date: new Date().toISOString(),
@@ -182,9 +182,9 @@ const defaultSales: Sale[] = [
 
 export function createInitialState(): AppState {
   return {
-    products: [],
-    customers: [],
-    sales: [],
+    products: defaultProducts,
+    customers: defaultCustomers,
+    sales: defaultSales,
   };
 }
 
@@ -196,9 +196,9 @@ function normalizeState(input: Partial<AppState> | null | undefined): AppState {
   }
 
   return {
-    products: Array.isArray(input.products) ? input.products : empty.products,
-    customers: Array.isArray(input.customers) ? input.customers : empty.customers,
-    sales: Array.isArray(input.sales) ? input.sales : empty.sales,
+    products: Array.isArray(input.products) && input.products.length ? input.products : empty.products,
+    customers: Array.isArray(input.customers) && input.customers.length ? input.customers : empty.customers,
+    sales: Array.isArray(input.sales) && input.sales.length ? input.sales : empty.sales,
   };
 }
 
@@ -212,41 +212,49 @@ export async function loadState(): Promise<AppState> {
       ]);
 
       if (!productsRes.error && !customersRes.error && !salesRes.error) {
-        return normalizeState({
-          products: Array.isArray(productsRes.data)
-            ? productsRes.data.map((item: any) => ({
-                id: item.id,
-                code: item.code,
-                name: item.name,
-                category: item.category,
-                stock: Number(item.stock ?? 0),
-                minStock: Number(item.min_stock ?? 0),
-                cost: Number(item.cost ?? 0),
-              }))
-            : [],
-          customers: Array.isArray(customersRes.data)
-            ? customersRes.data.map((item: any) => ({
-                id: item.id,
-                name: item.name,
-                phone: item.phone ?? "",
-                notes: item.notes ?? "",
-              }))
-            : [],
-          sales: Array.isArray(salesRes.data)
-            ? salesRes.data.map((item: any) => ({
-                id: item.id,
-                date: item.date ?? new Date().toISOString(),
-                productId: item.product_id,
-                productName: item.product_name,
-                quantity: Number(item.quantity ?? 0),
-                salePrice: Number(item.sale_price ?? 0),
-                costTotal: Number(item.cost_total ?? 0),
-                customerId: item.customer_id ?? undefined,
-                customerName: item.customer_name ?? undefined,
-                total: Number(item.total ?? 0),
-              }))
-            : [],
-        });
+        const fetchedProducts = Array.isArray(productsRes.data)
+          ? productsRes.data.map((item: Record<string, unknown>) => ({
+              id: String(item.id ?? ""),
+              code: String(item.code ?? ""),
+              name: String(item.name ?? ""),
+              category: String(item.category ?? ""),
+              stock: Number(item.stock ?? 0),
+              minStock: Number(item.min_stock ?? 0),
+              cost: Number(item.cost ?? 0),
+            }))
+          : [];
+
+        const fetchedCustomers = Array.isArray(customersRes.data)
+          ? customersRes.data.map((item: Record<string, unknown>) => ({
+              id: String(item.id ?? ""),
+              name: String(item.name ?? ""),
+              phone: String(item.phone ?? ""),
+              notes: String(item.notes ?? ""),
+            }))
+          : [];
+
+        const fetchedSales = Array.isArray(salesRes.data)
+          ? salesRes.data.map((item: Record<string, unknown>) => ({
+              id: String(item.id ?? ""),
+              date: String(item.date ?? new Date().toISOString()),
+              productId: String(item.product_id ?? ""),
+              productName: String(item.product_name ?? ""),
+              quantity: Number(item.quantity ?? 0),
+              salePrice: Number(item.sale_price ?? 0),
+              costTotal: Number(item.cost_total ?? 0),
+              customerId: item.customer_id ? String(item.customer_id) : undefined,
+              customerName: item.customer_name ? String(item.customer_name) : undefined,
+              total: Number(item.total ?? 0),
+            }))
+          : [];
+
+        if (fetchedProducts.length > 0 || fetchedCustomers.length > 0 || fetchedSales.length > 0) {
+          return {
+            products: fetchedProducts.length ? fetchedProducts : defaultProducts,
+            customers: fetchedCustomers.length ? fetchedCustomers : defaultCustomers,
+            sales: fetchedSales,
+          };
+        }
       }
     }
   } catch {
@@ -283,13 +291,13 @@ export async function persistState(state: AppState) {
       ]);
 
       const existingProductIds = new Set(
-        Array.isArray(productsExistingRes.data) ? productsExistingRes.data.map((item: any) => item.id) : [],
+        Array.isArray(productsExistingRes.data) ? productsExistingRes.data.map((item: Record<string, unknown>) => String(item.id ?? "")) : [],
       );
       const existingCustomerIds = new Set(
-        Array.isArray(customersExistingRes.data) ? customersExistingRes.data.map((item: any) => item.id) : [],
+        Array.isArray(customersExistingRes.data) ? customersExistingRes.data.map((item: Record<string, unknown>) => String(item.id ?? "")) : [],
       );
       const existingSaleIds = new Set(
-        Array.isArray(salesExistingRes.data) ? salesExistingRes.data.map((item: any) => item.id) : [],
+        Array.isArray(salesExistingRes.data) ? salesExistingRes.data.map((item: Record<string, unknown>) => String(item.id ?? "")) : [],
       );
 
       const deletedProductIds = [...existingProductIds].filter((id) => !productIds.includes(id));

@@ -122,20 +122,6 @@ export default function HomePage() {
     }
   }, [state, loading]);
 
-  useEffect(() => {
-    if (!state.products.length) {
-      return;
-    }
-
-    setSaleLines((lines) =>
-      lines.map((line) =>
-        state.products.some((product) => product.id === line.productId)
-          ? line
-          : { ...line, productId: state.products[0].id },
-      ),
-    );
-  }, [state.products]);
-
   const categories = useMemo(
     () => ["Todas", ...new Set(state.products.map((product) => product.category).filter(Boolean))],
     [state.products],
@@ -157,11 +143,6 @@ export default function HomePage() {
       return matchesQuery && matchesCategory;
     });
   }, [productCategoryFilter, productSearch, state.products]);
-
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-    setProductPage((current) => Math.min(current, totalPages));
-  }, [filteredProducts.length]);
 
   const totalSale = useMemo(
     () =>
@@ -593,7 +574,7 @@ export default function HomePage() {
     const data = await file.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(firstSheet, { defval: "" });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
 
     const importedProducts = rows
       .map((row, index) => normalizeImportedProduct(row, index))
@@ -866,14 +847,23 @@ export default function HomePage() {
               Buscar producto
               <input
                 value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
+                onChange={(e) => {
+                  setProductSearch(e.target.value);
+                  setProductPage(1);
+                }}
                 placeholder="Nombre, código o categoría"
               />
             </label>
 
             <label className="search-field">
               Categoría
-              <select value={productCategoryFilter} onChange={(e) => setProductCategoryFilter(e.target.value)}>
+              <select
+                value={productCategoryFilter}
+                onChange={(e) => {
+                  setProductCategoryFilter(e.target.value);
+                  setProductPage(1);
+                }}
+              >
                 {categories.map((category) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
