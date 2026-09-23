@@ -17,7 +17,7 @@ const STOCK_KEYS = ["stock", "cantidad", "qty", "unidades", "existencias"];
 const MIN_STOCK_KEYS = ["stock_minimo", "min_stock", "minimo", "stockm", "stock_min"];
 const COST_KEYS = ["costo", "cost", "precio_costo", "cost_price", "valor_costo"];
 
-export function findFirstValue(row: Record<string, any>, keys: string[]) {
+export function findFirstValue(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = row[key];
     if (value !== undefined && value !== null && String(value).trim() !== "") {
@@ -37,7 +37,7 @@ export function findFirstValue(row: Record<string, any>, keys: string[]) {
   return "";
 }
 
-export function normalizeImportedProduct(row: Record<string, any>, index: number): Product | null {
+export function normalizeImportedProduct(row: Record<string, unknown>, index: number): Product | null {
   const code = findFirstValue(row, PRODUCT_KEYS) || `D-${String(index + 1).padStart(4, "0")}`;
   const name = findFirstValue(row, ["nombre", "name", "producto", "articulo", "artículo", "descripcion"]) || `Producto ${index + 1}`;
   const category = findFirstValue(row, CATEGORY_KEYS) || "General";
