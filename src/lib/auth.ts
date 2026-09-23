@@ -65,20 +65,32 @@ export async function loginUser(
   const normalizedPassword = password.trim();
 
   if (supabase) {
-    const { data, error } = await supabase.rpc("login_user", {
-      p_email: normalizedEmail,
-      p_password: normalizedPassword,
-    });
+    try {
+      const { data, error } = await supabase.rpc("login_user", {
+        p_email: normalizedEmail,
+        p_password: normalizedPassword,
+      });
 
-    if (error) {
-      return { user: null, error: mapSupabaseAuthError(error) };
+      if (!error) {
+        if (data) {
+          return { user: data as AuthUser };
+        }
+        return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
+      }
+
+      const isMissingRpc =
+        error.code === "PGRST202" ||
+        error.code === "404" ||
+        error.message?.includes("404") ||
+        error.message?.includes("Could not find the function") ||
+        error.message?.includes("schema cache");
+
+      if (!isMissingRpc) {
+        return { user: null, error: mapSupabaseAuthError(error) };
+      }
+    } catch {
+      // Si la llamada falla por red o la RPC no existe, se intenta autenticación local.
     }
-
-    if (data) {
-      return { user: data as AuthUser };
-    }
-
-    return { user: null, error: "Credenciales inválidas. Revisá el email y la contraseña." };
   }
 
   const matchedUser = getLocalUsers().find(
@@ -103,18 +115,31 @@ export async function registerUser(
   const normalizedPassword = password.trim();
 
   if (supabase) {
-    const { data, error } = await supabase.rpc("register_user", {
-      p_id: crypto.randomUUID(),
-      p_name: normalizedName,
-      p_email: normalizedEmail,
-      p_password: normalizedPassword,
-    });
+    try {
+      const { data, error } = await supabase.rpc("register_user", {
+        p_id: crypto.randomUUID(),
+        p_name: normalizedName,
+        p_email: normalizedEmail,
+        p_password: normalizedPassword,
+      });
 
-    if (error) {
-      return { user: null, error: mapSupabaseAuthError(error) };
+      if (!error) {
+        return { user: data as AuthUser };
+      }
+
+      const isMissingRpc =
+        error.code === "PGRST202" ||
+        error.code === "404" ||
+        error.message?.includes("404") ||
+        error.message?.includes("Could not find the function") ||
+        error.message?.includes("schema cache");
+
+      if (!isMissingRpc) {
+        return { user: null, error: mapSupabaseAuthError(error) };
+      }
+    } catch {
+      // Fallback a almacenamiento local
     }
-
-    return { user: data as AuthUser };
   }
 
   const users = getLocalUsers();
